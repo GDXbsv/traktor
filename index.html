@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Traktor Helm Repository</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        h1 { color: #333; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Traktor Helm Repository</h1>
+    <p>Official Helm repository for Traktor - Kubernetes operator that automatically restarts deployments when secrets change.</p>
+    
+    <h2>Add Repository</h2>
+    <pre>helm repo add traktor https://gdxbsv.github.io/traktor
+helm repo update</pre>
+    
+    <h2>Install Chart</h2>
+    <pre>helm install traktor traktor/traktor</pre>
+    
+    <h2>Links</h2>
+    <ul>
+        <li><a href="https://github.com/GDXbsv/traktor">GitHub Repository</a></li>
+        <li><a href="https://artifacthub.io/packages/helm/traktor/traktor">Artifact Hub</a></li>
+        <li><a href="index.yaml">Helm Repository Index</a></li>
+    </ul>
+</body>
+</html>
