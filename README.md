@@ -110,12 +110,25 @@ Secret Update → Operator Detects → Adds Annotation → Rolling Restart → N
 
 ### Option 1: Install from Release (Recommended)
 
+**Using kubectl:**
 ```bash
 # Install latest version
 kubectl apply -f https://github.com/GDXbsv/traktor/releases/latest/download/install.yaml
 
 # Install specific version
 kubectl apply -f https://github.com/GDXbsv/traktor/releases/download/v0.0.1/install.yaml
+```
+
+**Using Helm:**
+```bash
+# Install latest version
+helm install traktor https://github.com/GDXbsv/traktor/releases/latest/download/traktor-0.0.1.tgz
+
+# Install specific version
+helm install traktor https://github.com/GDXbsv/traktor/releases/download/v0.0.1/traktor-0.0.1.tgz
+
+# Install with custom values
+helm install traktor https://github.com/GDXbsv/traktor/releases/latest/download/traktor-0.0.1.tgz -f values.yaml
 ```
 
 ### Option 2: Install from Source
@@ -132,7 +145,24 @@ make install
 make deploy IMG=docker.io/gdxbsv/traktor:latest
 ```
 
-### Option 3: Using Kustomize
+### Option 3: Install Using Helm from Source
+
+```bash
+# Clone repository
+git clone https://github.com/GDXbsv/traktor.git
+cd traktor
+
+# Install with Helm
+helm install traktor ./charts/traktor
+
+# Install in custom namespace
+helm install traktor ./charts/traktor -n traktor-system --create-namespace
+
+# Install with custom values
+helm install traktor ./charts/traktor -f my-values.yaml
+```
+
+### Option 4: Using Kustomize
 
 ```bash
 kubectl apply -k config/default
@@ -401,6 +431,7 @@ traktor/
 ## 📚 Documentation
 
 - **[Installation Guide](DEPLOYMENT.md)** - Detailed deployment instructions
+- **[Helm Chart](charts/traktor/README.md)** - Helm installation and configuration
 - **[Testing Guide](TESTING.md)** - How to run and write tests
 - **[CI/CD Setup](docs/CICD_SETUP.md)** - Setting up GitHub Actions
 - **[Examples](config/samples/)** - Configuration examples
@@ -446,8 +477,10 @@ GitHub Actions will automatically:
 
 Each release includes:
 - `install.yaml` - Complete installation manifest
+- `traktor-vX.Y.Z.tgz` - Helm chart package
 - `traktor-vX.Y.Z-manifests.tar.gz` - All manifests packaged
 - `sbom-vX.Y.Z.spdx.json` - Software Bill of Materials
+- `index.yaml` - Helm repository index
 - Docker images for AMD64 and ARM64
 
 ## 🤝 Contributing

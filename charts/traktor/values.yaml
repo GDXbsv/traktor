@@ -1,0 +1,194 @@
+# Default values for traktor operator
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Operator image configuration
+image:
+  repository: docker.io/gdxbsv/traktor
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Replicas for the controller manager
+replicaCount: 1
+
+# Service account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  runAsNonRoot: true
+  runAsUser: 65532
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 10m
+    memory: 256Mi
+
+# Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8081
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8081
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Priority class name
+priorityClassName: ""
+
+# Enable leader election for controller manager
+leaderElection:
+  enabled: true
+
+# Metrics service configuration
+metrics:
+  enabled: true
+  port: 8443
+  service:
+    type: ClusterIP
+    port: 8443
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8443"
+      prometheus.io/scheme: "https"
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  # Additional labels for ServiceMonitor
+  additionalLabels: {}
+  # Scrape interval
+  interval: 30s
+  # Scrape timeout
+  scrapeTimeout: 10s
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+
+# Webhook configuration (if webhooks are enabled in future)
+webhook:
+  enabled: false
+  port: 9443
+  certManager:
+    enabled: false
+
+# CRD installation
+crds:
+  # Install CRDs as part of the Helm chart
+  install: true
+  # Keep CRDs on chart uninstall
+  keep: true
+
+# Additional environment variables for the controller
+env: []
+  # - name: LOG_LEVEL
+  #   value: "debug"
+
+# Additional volumes
+volumes: []
+  # - name: custom-config
+  #   configMap:
+  #     name: my-config
+
+# Additional volume mounts
+volumeMounts: []
+  # - name: custom-config
+  #   mountPath: /etc/config
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: TCP
+        port: 443
+      - protocol: TCP
+        port: 6443
+
+# Example SecretsRefresh resources to create
+# These are for demonstration purposes
+exampleResources:
+  enabled: false
+  resources:
+    - apiVersion: apps.gdxcloud.net/v1alpha1
+      kind: SecretsRefresh
+      metadata:
+        name: example-watcher
+      spec:
+        namespaceSelector:
+          matchLabels:
+            environment: production
+        secretSelector:
+          matchLabels:
+            auto-refresh: "enabled"

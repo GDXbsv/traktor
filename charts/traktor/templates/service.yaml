@@ -1,0 +1,22 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "traktor.metricsServiceName" . }}
+  namespace: {{ include "traktor.namespace" . }}
+  labels:
+    {{- include "traktor.labels" . | nindent 4 }}
+  {{- with .Values.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.metrics.service.type }}
+  ports:
+  - name: https
+    port: {{ .Values.metrics.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.metrics.port }}
+  selector:
+    {{- include "traktor.selectorLabels" . | nindent 4 }}
+{{- end }}

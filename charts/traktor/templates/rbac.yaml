@@ -1,0 +1,79 @@
+{{- if .Values.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "traktor.managerRoleName" . }}
+  labels:
+    {{- include "traktor.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - apps.gdxcloud.net
+  resources:
+  - secretsrefreshes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.gdxcloud.net
+  resources:
+  - secretsrefreshes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.gdxcloud.net
+  resources:
+  - secretsrefreshes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "traktor.managerRoleName" . }}
+  labels:
+    {{- include "traktor.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "traktor.managerRoleName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "traktor.serviceAccountName" . }}
+  namespace: {{ include "traktor.namespace" . }}
+{{- end }}

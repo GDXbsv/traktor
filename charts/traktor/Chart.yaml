@@ -1,0 +1,45 @@
+apiVersion: v2
+name: traktor
+description: A Kubernetes operator that automatically restarts deployments when secrets change
+type: application
+version: 0.0.1
+appVersion: "0.0.1"
+
+keywords:
+  - kubernetes
+  - operator
+  - secrets
+  - deployment
+  - restart
+  - automation
+
+home: https://github.com/GDXbsv/traktor
+sources:
+  - https://github.com/GDXbsv/traktor
+
+maintainers:
+  - name: GDX Cloud
+    email: support@gdxcloud.net
+    url: https://gdxcloud.net
+
+icon: https://raw.githubusercontent.com/GDXbsv/traktor/main/docs/images/logo.png
+
+annotations:
+  # Artifact Hub specific annotations
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "true"
+  artifacthub.io/operatorCapabilities: Basic Install
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/recommendations: |
+    - url: https://github.com/GDXbsv/traktor
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://github.com/GDXbsv/traktor/blob/main/README.md
+    - name: Installation Guide
+      url: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release of Traktor operator
+      links:
+        - name: GitHub Release
+          url: https://github.com/GDXbsv/traktor/releases/tag/v0.0.1

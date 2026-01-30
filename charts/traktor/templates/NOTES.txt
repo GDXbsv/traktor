@@ -1,0 +1,47 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+=======================================================================
+
+Traktor Operator has been deployed successfully!
+
+1. Check the operator status:
+
+   kubectl get pods -n {{ .Release.Namespace }} -l {{ include "traktor.selectorLabels" . | nindent 6 }}
+
+2. View the operator logs:
+
+   kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "traktor.controllerManagerName" . }} -f
+
+3. Create a SecretsRefresh resource:
+
+   cat <<EOL | kubectl apply -f -
+   apiVersion: apps.gdxcloud.net/v1alpha1
+   kind: SecretsRefresh
+   metadata:
+     name: my-secrets-watcher
+     namespace: default
+   spec:
+     namespaceSelector:
+       matchLabels:
+         environment: production
+     secretSelector:
+       matchLabels:
+         auto-refresh: enabled
+   EOL
+
+4. Label your namespaces and secrets:
+
+   kubectl label namespace my-app environment=production
+   kubectl label secret my-secret -n my-app auto-refresh=enabled
+
+For more information, visit:
+- Documentation: https://github.com/GDXbsv/traktor
+- Installation Guide: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
+
