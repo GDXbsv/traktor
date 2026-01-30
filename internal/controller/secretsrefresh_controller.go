@@ -157,7 +157,7 @@ func (r *SecretsRefreshReconciler) findSecretsRefreshForSecret(ctx context.Conte
 		return []ctrl.Request{}
 	}
 
-	var requests []ctrl.Request
+	requests := make([]ctrl.Request, 0, len(srList.Items))
 	for _, sr := range srList.Items {
 		// Check if this secret's namespace matches the SecretsRefresh namespace selector
 		namespaces, err := r.getFilteredNamespaces(ctx, &sr)
