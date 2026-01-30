@@ -30,6 +30,28 @@ annotations:
   artifacthub.io/operator: "true"
   artifacthub.io/operatorCapabilities: Basic Install
   artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/signKey: |
+    fingerprint: ...
+    url: https://github.com/GDXbsv/traktor/blob/main/PUBLIC_KEY.asc
+  artifacthub.io/crds: |
+    - kind: SecretsRefresh
+      version: v1alpha1
+      name: secretsrefreshes.apps.gdxcloud.net
+      displayName: Secrets Refresh
+      description: Watches secrets and restarts deployments on changes
+  artifacthub.io/crdsExamples: |
+    - apiVersion: apps.gdxcloud.net/v1alpha1
+      kind: SecretsRefresh
+      metadata:
+        name: production-watcher
+      spec:
+        namespaceSelector:
+          matchLabels:
+            environment: production
+        secretSelector:
+          matchLabels:
+            auto-refresh: enabled
   artifacthub.io/recommendations: |
     - url: https://github.com/GDXbsv/traktor
   artifacthub.io/links: |
@@ -37,6 +59,8 @@ annotations:
       url: https://github.com/GDXbsv/traktor/blob/main/README.md
     - name: Installation Guide
       url: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
+    - name: Chart Source
+      url: https://github.com/GDXbsv/traktor/tree/main/charts/traktor
   artifacthub.io/changes: |
     - kind: added
       description: Initial release of Traktor operator

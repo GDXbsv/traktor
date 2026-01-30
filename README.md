@@ -5,6 +5,7 @@
 [![E2E Tests](https://github.com/GDXbsv/traktor/actions/workflows/test-e2e.yml/badge.svg)](https://github.com/GDXbsv/traktor/actions/workflows/test-e2e.yml)
 [![Build](https://github.com/GDXbsv/traktor/actions/workflows/build.yml/badge.svg)](https://github.com/GDXbsv/traktor/actions/workflows/build.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/GDXbsv/traktor)](https://goreportcard.com/report/github.com/GDXbsv/traktor)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/traktor)](https://artifacthub.io/packages/helm/traktor/traktor)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 A Kubernetes operator that automatically restarts deployments when secrets change. No more manual rollouts after secret updates!
@@ -119,16 +120,26 @@ kubectl apply -f https://github.com/GDXbsv/traktor/releases/latest/download/inst
 kubectl apply -f https://github.com/GDXbsv/traktor/releases/download/v0.0.1/install.yaml
 ```
 
-**Using Helm:**
+**Using Helm (from Artifact Hub/GitHub Pages):**
 ```bash
+# Add Helm repository
+helm repo add traktor https://gdxbsv.github.io/traktor
+helm repo update
+
 # Install latest version
-helm install traktor https://github.com/GDXbsv/traktor/releases/latest/download/traktor-0.0.1.tgz
+helm install traktor traktor/traktor
 
 # Install specific version
-helm install traktor https://github.com/GDXbsv/traktor/releases/download/v0.0.1/traktor-0.0.1.tgz
+helm install traktor traktor/traktor --version 0.0.1
 
 # Install with custom values
-helm install traktor https://github.com/GDXbsv/traktor/releases/latest/download/traktor-0.0.1.tgz -f values.yaml
+helm install traktor traktor/traktor -f values.yaml
+```
+
+**Using Helm (from GitHub Release):**
+```bash
+# Install directly from release
+helm install traktor https://github.com/GDXbsv/traktor/releases/latest/download/traktor-0.0.1.tgz
 ```
 
 ### Option 2: Install from Source
@@ -432,6 +443,8 @@ traktor/
 
 - **[Installation Guide](DEPLOYMENT.md)** - Detailed deployment instructions
 - **[Helm Chart](charts/traktor/README.md)** - Helm installation and configuration
+- **[Artifact Hub](https://artifacthub.io/packages/helm/traktor/traktor)** - Discover on Artifact Hub
+- **[Artifact Hub Setup](docs/ARTIFACTHUB_SETUP.md)** - How to publish to Artifact Hub
 - **[Testing Guide](TESTING.md)** - How to run and write tests
 - **[CI/CD Setup](docs/CICD_SETUP.md)** - Setting up GitHub Actions
 - **[Examples](config/samples/)** - Configuration examples
@@ -591,6 +604,8 @@ If you find this project useful, please consider giving it a star! ⭐
 
 - **Issues**: [GitHub Issues](../../issues)
 - **Discussions**: [GitHub Discussions](../../discussions)
+- **Artifact Hub**: [traktor on Artifact Hub](https://artifacthub.io/packages/helm/traktor/traktor)
+- **Helm Repository**: https://gdxbsv.github.io/traktor
 - **Email**: support@gdxcloud.net
 - **Website**: https://gdxcloud.net
 

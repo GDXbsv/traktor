@@ -1,0 +1,92 @@
+name: Publish Helm Repository
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  release-helm-chart:
+    name: Publish Helm Chart to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.13.0
+
+      - name: Extract version
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v(.*)$ ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "version=0.0.1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Chart version
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          sed -i "s/^version:.*/version: ${VERSION}/" charts/traktor/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" charts/traktor/Chart.yaml
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package charts/traktor -d .cr-release-packages
+
+      - name: Update Helm repository index
+        run: |
+          # Copy new package to gh-pages
+          mkdir -p gh-pages
+          cp .cr-release-packages/*.tgz gh-pages/
+          
+          # Generate/update index
+          helm repo index gh-pages --url https://gdxbsv.github.io/traktor
+          
+          # Add Artifact Hub repository metadata
+          cat > gh-pages/artifacthub-repo.yml << 'EOF'
+          repositoryID: traktor
+          owners:
+            - name: GDX Cloud
+              email: support@gdxcloud.net
+          EOF
+
+      - name: Deploy to GitHub Pages
+        run: |
+          cd gh-pages
+          git add .
+          git commit -m "Release Helm chart ${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages
+
+      - name: Create release note
+        run: |
+          echo "📦 Helm chart published to GitHub Pages!"
+          echo "Add the repository:"
+          echo "  helm repo add traktor https://gdxbsv.github.io/traktor"
+          echo "  helm repo update"
+          echo ""
+          echo "Install the chart:"
+          echo "  helm install traktor traktor/traktor --version ${{ steps.get_version.outputs.version }}"
