@@ -1,0 +1,293 @@
+# Traktor Operator - Production Example
+# Real-world configuration for managing secrets across multiple production environments
+
+---
+# Example: Multi-tier production application with database credentials
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: prod-app-secrets
+  namespace: traktor-system
+  labels:
+    app.kubernetes.io/name: traktor
+    environment: production
+spec:
+  # Watch production namespaces only
+  namespaceSelector:
+    matchLabels:
+      environment: production
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - web-frontend
+          - api-backend
+          - worker-service
+  
+  # Only watch secrets marked for auto-refresh
+  secretSelector:
+    matchLabels:
+      auto-refresh: "enabled"
+  
+  refreshInterval: "5m"
+
+---
+# Example: Database credentials refresh across all services
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: database-credentials-watcher
+  namespace: traktor-system
+spec:
+  # Watch all production namespaces
+  namespaceSelector:
+    matchLabels:
+      environment: production
+  
+  # Only watch database-related secrets
+  secretSelector:
+    matchLabels:
+      type: database-credentials
+      refresh: "enabled"
+  
+  refreshInterval: "10m"
+
+---
+# Example: API keys and external service credentials
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: api-keys-watcher
+  namespace: traktor-system
+spec:
+  namespaceSelector:
+    matchExpressions:
+      - key: environment
+        operator: In
+        values:
+          - production
+          - staging
+      - key: team
+        operator: Exists
+  
+  secretSelector:
+    matchLabels:
+      type: api-credentials
+      sensitive: "true"
+    matchExpressions:
+      - key: service
+        operator: In
+        values:
+          - payment-gateway
+          - email-service
+          - sms-provider
+          - storage-service
+  
+  refreshInterval: "15m"
+
+---
+# Example: TLS certificates auto-refresh
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: tls-certificates-watcher
+  namespace: traktor-system
+spec:
+  namespaceSelector:
+    matchLabels:
+      environment: production
+      has-ingress: "true"
+  
+  secretSelector:
+    matchLabels:
+      type: kubernetes.io/tls
+      auto-renew: "true"
+  
+  refreshInterval: "1h"
+
+---
+# PRODUCTION SETUP GUIDE:
+#
+# 1. NAMESPACE LABELING STRATEGY
+#
+# Label your production namespaces:
+#   kubectl label namespace web-frontend environment=production app=web-frontend
+#   kubectl label namespace api-backend environment=production app=api-backend team=platform
+#   kubectl label namespace worker-service environment=production app=worker-service
+#   kubectl label namespace ingress-nginx environment=production has-ingress=true
+#
+# 2. SECRET LABELING STRATEGY
+#
+# Database credentials:
+#   kubectl label secret postgres-credentials -n api-backend \
+#     type=database-credentials refresh=enabled auto-refresh=enabled
+#   
+#   kubectl label secret redis-password -n worker-service \
+#     type=database-credentials refresh=enabled auto-refresh=enabled
+#
+# API keys:
+#   kubectl label secret stripe-api-key -n api-backend \
+#     type=api-credentials sensitive=true service=payment-gateway auto-refresh=enabled
+#   
+#   kubectl label secret sendgrid-api-key -n worker-service \
+#     type=api-credentials sensitive=true service=email-service auto-refresh=enabled
+#
+# TLS certificates:
+#   kubectl label secret my-app-tls -n web-frontend \
+#     type=kubernetes.io/tls auto-renew=true auto-refresh=enabled
+#
+# 3. CREATE SAMPLE PRODUCTION DEPLOYMENT
+#
+# Create a deployment that uses secrets:
+#   kubectl create namespace api-backend
+#   kubectl label namespace api-backend environment=production app=api-backend
+#   
+#   kubectl create secret generic postgres-credentials \
+#     --from-literal=username=apiuser \
+#     --from-literal=password=prod-password-123 \
+#     -n api-backend
+#   
+#   kubectl label secret postgres-credentials -n api-backend \
+#     type=database-credentials refresh=enabled auto-refresh=enabled
+#   
+#   kubectl create deployment api-service \
+#     --image=nginx:alpine \
+#     --replicas=3 \
+#     -n api-backend
+#   
+#   kubectl set env deployment/api-service \
+#     DB_USERNAME=secretKeyRef:postgres-credentials:username \
+#     DB_PASSWORD=secretKeyRef:postgres-credentials:password \
+#     -n api-backend
+#
+# 4. APPLY THE PRODUCTION CONFIGURATION
+#
+#   kubectl apply -f config/samples/production-example.yaml
+#
+# 5. VERIFY OPERATOR IS WATCHING
+#
+#   kubectl get secretsrefresh -n traktor-system
+#   kubectl logs -n traktor-system deployment/traktor-controller-manager -f
+#
+# 6. TEST SECRET ROTATION
+#
+# Rotate the database password:
+#   kubectl create secret generic postgres-credentials \
+#     --from-literal=username=apiuser \
+#     --from-literal=password=new-prod-password-456 \
+#     -n api-backend \
+#     --dry-run=client -o yaml | \
+#     kubectl label --local -f - \
+#       type=database-credentials refresh=enabled auto-refresh=enabled \
+#       -o yaml --dry-run=client | \
+#     kubectl apply -f -
+#
+# Watch deployments restart automatically:
+#   kubectl get deployments -n api-backend -w
+#
+# Verify pods are using new credentials:
+#   kubectl get pods -n api-backend
+#   kubectl logs -n api-backend deployment/api-service
+#
+# 7. MONITORING AND ALERTING
+#
+# Monitor operator health:
+#   kubectl get pods -n traktor-system
+#   kubectl top pod -n traktor-system
+#
+# Check for errors:
+#   kubectl logs -n traktor-system deployment/traktor-controller-manager --tail=100
+#
+# View events:
+#   kubectl get events -n traktor-system --sort-by='.lastTimestamp'
+#
+# 8. PRODUCTION BEST PRACTICES
+#
+# a) Use specific selectors - avoid watching all secrets
+# b) Label secrets consistently across teams
+# c) Test in staging first with identical labels
+# d) Monitor operator memory usage (may need to increase for large clusters)
+# e) Use RefreshInterval appropriate for your secret rotation policy
+# f) Coordinate secret updates with deployment windows when possible
+# g) Keep audit logs of secret changes
+# h) Document your labeling strategy in a team wiki
+#
+# 9. SCALING CONSIDERATIONS
+#
+# For large clusters (100+ namespaces):
+# - Increase operator memory limits in config/manager/manager.yaml
+# - Use more specific namespace selectors
+# - Consider multiple SecretsRefresh resources for different secret types
+# - Monitor operator resource usage
+#
+# 10. SECURITY CONSIDERATIONS
+#
+# - The operator needs read access to secrets (cluster-wide)
+# - Review RBAC permissions in config/rbac/
+# - Avoid logging secret values
+# - Use network policies to restrict operator access if needed
+# - Consider using Pod Security Standards
+#
+# 11. DISASTER RECOVERY
+#
+# Backup SecretsRefresh configurations:
+#   kubectl get secretsrefresh -n traktor-system -o yaml > backup-secretsrefresh.yaml
+#
+# Restore after cluster rebuild:
+#   kubectl apply -f backup-secretsrefresh.yaml
+#
+# 12. TROUBLESHOOTING
+#
+# Deployments not restarting:
+#   - Check namespace labels: kubectl get ns --show-labels
+#   - Check secret labels: kubectl get secrets -n <namespace> --show-labels
+#   - Check operator logs for errors
+#   - Verify SecretsRefresh resource exists and is active
+#
+# Operator OOM killed:
+#   - Increase memory limits in config/manager/manager.yaml
+#   - Check for memory leaks in logs
+#   - Reduce scope of watched namespaces/secrets
+#
+# Too many restarts:
+#   - Review secret update frequency
+#   - Check for flapping secrets (rapid updates)
+#   - Consider increasing refreshInterval
+#   - Use more specific selectors
+
+---
+# EXAMPLE PRODUCTION ARCHITECTURE:
+#
+# Cluster Structure:
+#   ├── traktor-system (operator namespace)
+#   │   └── SecretsRefresh CRs
+#   │
+#   ├── web-frontend (production)
+#   │   ├── Deployments: web-app (3 replicas)
+#   │   └── Secrets: api-keys, session-secret
+#   │
+#   ├── api-backend (production)
+#   │   ├── Deployments: api-service (5 replicas)
+#   │   └── Secrets: postgres-creds, redis-creds, jwt-secret
+#   │
+#   ├── worker-service (production)
+#   │   ├── Deployments: background-worker (10 replicas)
+#   │   └── Secrets: queue-creds, s3-keys, sendgrid-key
+#   │
+#   └── monitoring (production)
+#       ├── Deployments: prometheus, grafana
+#       └── Secrets: grafana-admin, prom-remote-write
+#
+# Label Strategy:
+#   Namespaces:
+#     - environment: production|staging|development
+#     - app: web-frontend|api-backend|worker-service
+#     - team: platform|data|frontend
+#     - has-ingress: true|false
+#   
+#   Secrets:
+#     - auto-refresh: enabled|disabled
+#     - type: database-credentials|api-credentials|tls
+#     - sensitive: true|false
+#     - service: payment-gateway|email-service|storage-service
+#     - refresh: enabled|disabled

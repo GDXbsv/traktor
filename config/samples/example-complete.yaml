@@ -1,0 +1,181 @@
+# Complete example configuration for Traktor Operator
+# This file demonstrates all available options and common use cases
+
+---
+# Example 1: Watch production secrets and auto-restart deployments
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: production-secrets-watcher
+  namespace: default
+  labels:
+    app.kubernetes.io/name: traktor
+    environment: production
+spec:
+  # Watch only namespaces labeled with 'environment: production'
+  namespaceSelector:
+    matchLabels:
+      environment: production
+  
+  # Only watch secrets with label 'auto-refresh: enabled'
+  secretSelector:
+    matchLabels:
+      auto-refresh: "enabled"
+  
+  # Optional: How often to check (not actively used in current implementation)
+  refreshInterval: "5m"
+
+---
+# Example 2: Watch specific application secrets across multiple teams
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: multi-team-secrets
+  namespace: default
+spec:
+  # Watch namespaces from backend and frontend teams
+  namespaceSelector:
+    matchExpressions:
+      - key: team
+        operator: In
+        values:
+          - backend
+          - frontend
+          - platform
+  
+  # Watch secrets that have either 'type: app-config' or 'type: database'
+  secretSelector:
+    matchExpressions:
+      - key: type
+        operator: In
+        values:
+          - app-config
+          - database
+  
+  refreshInterval: "10m"
+
+---
+# Example 3: Watch all secrets in a specific namespace
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: staging-all-secrets
+  namespace: default
+spec:
+  # Watch only the 'staging' namespace by name
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values:
+          - staging
+  
+  # No secretSelector means watch ALL secrets in matched namespaces
+  
+  refreshInterval: "15m"
+
+---
+# Example 4: Watch all namespaces and all secrets (use with caution!)
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: global-secrets-watcher
+  namespace: default
+spec:
+  # No namespaceSelector = watch ALL namespaces
+  # No secretSelector = watch ALL secrets
+  # This will restart deployments whenever ANY secret changes ANYWHERE
+  
+  refreshInterval: "30m"
+
+---
+# Example 5: Complex filtering - Production app secrets only
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: production-app-secrets
+  namespace: default
+spec:
+  namespaceSelector:
+    matchLabels:
+      environment: production
+      managed-by: platform-team
+    matchExpressions:
+      - key: app-tier
+        operator: In
+        values:
+          - frontend
+          - backend
+          - api
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+  
+  secretSelector:
+    matchLabels:
+      refresh: "enabled"
+      sensitive: "true"
+    matchExpressions:
+      - key: type
+        operator: NotIn
+        values:
+          - kubernetes.io/service-account-token
+          - helm.sh/release.v1
+  
+  refreshInterval: "5m"
+
+---
+# HOW TO USE:
+# 
+# 1. Deploy the operator:
+#    kubectl apply -f dist/install.yaml
+#
+# 2. Label your namespaces:
+#    kubectl label namespace my-app environment=production
+#    kubectl label namespace backend team=backend
+#
+# 3. Label your secrets:
+#    kubectl label secret my-db-password -n my-app auto-refresh=enabled
+#    kubectl label secret api-keys -n my-app auto-refresh=enabled type=app-config
+#
+# 4. Apply one of the examples above:
+#    kubectl apply -f config/samples/example-complete.yaml
+#
+# 5. Update a labeled secret and watch deployments restart:
+#    kubectl create secret generic my-db-password \
+#      --from-literal=password=newpassword \
+#      -n my-app \
+#      --dry-run=client -o yaml | kubectl apply -f -
+#
+#    # Watch the deployments restart
+#    kubectl get deployments -n my-app -w
+#
+# 6. Verify the restart annotation:
+#    kubectl get deployment <deployment-name> -n my-app \
+#      -o jsonpath='{.spec.template.metadata.annotations.traktor\.gdxcloud\.net/restartedAt}'
+#
+# LABELS REFERENCE:
+#
+# Common namespace labels to use:
+# - environment: production|staging|development
+# - team: backend|frontend|platform|data
+# - managed-by: platform-team|devops
+# - app-tier: frontend|backend|database|cache
+#
+# Common secret labels to use:
+# - auto-refresh: enabled|disabled
+# - refresh: enabled|disabled
+# - type: app-config|database|api-keys|certificates
+# - sensitive: true|false
+#
+# TIPS:
+#
+# - Start with specific selectors and gradually expand
+# - Use 'kubectl get secrets --show-labels -A' to see existing labels
+# - Use 'kubectl get namespaces --show-labels' to see namespace labels
+# - Monitor operator logs: kubectl logs -n traktor-system deployment/traktor-controller-manager -f
+# - Deployments restart with rolling update (zero downtime)
+# - The operator only watches secrets that match BOTH namespace AND secret selectors
