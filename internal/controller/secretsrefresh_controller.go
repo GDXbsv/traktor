@@ -4,6 +4,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,19 +37,33 @@ type SecretsRefreshReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
+// The req.Name contains the Secret's namespace (passed from findSecretsRefreshForSecret)
 func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// This reconcile is triggered by a Secret change (via SetupWithManager Watches)
 	// The Secret has already been filtered by namespace and label selectors
-	// We just need to restart all Deployments in the same namespace
+	// req.Name contains the Secret's namespace where we need to restart deployments
+	
+	secretNamespace := req.Name
 
-	logger.Info("Secret changed, restarting deployments", "namespace", req.Namespace)
+	// Safety check: Skip if this is the operator's own namespace to prevent self-restart loop
+	operatorNamespace := os.Getenv("POD_NAMESPACE")
+	if operatorNamespace == "" {
+		operatorNamespace = "traktor-system" // fallback to default
+	}
+	
+	if secretNamespace == operatorNamespace {
+		logger.Info("Skipping operator's own namespace to prevent self-restart", "namespace", secretNamespace)
+		return ctrl.Result{}, nil
+	}
+
+	logger.Info("Secret changed, restarting deployments", "namespace", secretNamespace)
 
 	// List all deployments in the namespace
 	deploymentList := &appsv1.DeploymentList{}
-	if err := r.List(ctx, deploymentList, client.InNamespace(req.Namespace)); err != nil {
-		logger.Error(err, "Failed to list deployments", "namespace", req.Namespace)
+	if err := r.List(ctx, deploymentList, client.InNamespace(secretNamespace)); err != nil {
+		logger.Error(err, "Failed to list deployments", "namespace", secretNamespace)
 		return ctrl.Result{}, err
 	}
 
@@ -77,7 +92,7 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	logger.Info("Completed deployment restart",
-		"namespace", req.Namespace,
+		"namespace", secretNamespace,
 		"restartedCount", restartedCount,
 		"totalDeployments", len(deploymentList.Items))
 
@@ -177,10 +192,11 @@ func (r *SecretsRefreshReconciler) findSecretsRefreshForSecret(ctx context.Conte
 		}
 
 		// This SecretsRefresh should be reconciled
+		// Pass the Secret's namespace as Name (hack to pass namespace info to Reconcile)
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
-				Name:      sr.Name,
-				Namespace: sr.Namespace,
+				Name:      secret.GetNamespace(), // Secret's namespace
+				Namespace: sr.Namespace,          // SecretsRefresh namespace (for logging)
 			},
 		})
 	}
