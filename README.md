@@ -1,125 +1,542 @@
-# traktor
-// TODO(user): Add simple overview of use/purpose
+# Traktor Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+[![Tests](https://github.com/GDXbsv/traktor/actions/workflows/test.yml/badge.svg)](https://github.com/GDXbsv/traktor/actions/workflows/test.yml)
+[![Lint](https://github.com/GDXbsv/traktor/actions/workflows/lint.yml/badge.svg)](https://github.com/GDXbsv/traktor/actions/workflows/lint.yml)
+[![E2E Tests](https://github.com/GDXbsv/traktor/actions/workflows/test-e2e.yml/badge.svg)](https://github.com/GDXbsv/traktor/actions/workflows/test-e2e.yml)
+[![Build](https://github.com/GDXbsv/traktor/actions/workflows/build.yml/badge.svg)](https://github.com/GDXbsv/traktor/actions/workflows/build.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/GDXbsv/traktor)](https://goreportcard.com/report/github.com/GDXbsv/traktor)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## Getting Started
+A Kubernetes operator that automatically restarts deployments when secrets change. No more manual rollouts after secret updates!
+
+## 🚀 Features
+
+- **Automatic Deployment Restart** - Deployments automatically restart when their secrets change
+- **Flexible Filtering** - Watch specific namespaces and secrets using label selectors
+- **Zero Downtime** - Uses rolling restart strategy (Kubernetes default)
+- **Self-Protection** - Operator never restarts itself
+- **Multi-Architecture** - Supports AMD64 and ARM64
+- **Production Ready** - Full RBAC, security scanning, comprehensive tests
+
+## 📖 Table of Contents
+
+- [Quick Start](#quick-start)
+- [How It Works](#how-it-works)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Examples](#examples)
+- [Development](#development)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+## ⚡ Quick Start
+
+### 1. Install the Operator
+
+```bash
+kubectl apply -f https://github.com/GDXbsv/traktor/releases/latest/download/install.yaml
+```
+
+### 2. Label Your Namespace
+
+```bash
+kubectl label namespace my-app environment=production
+```
+
+### 3. Label Your Secrets
+
+```bash
+kubectl label secret my-secret -n my-app auto-refresh=enabled
+```
+
+### 4. Create SecretsRefresh Resource
+
+```yaml
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: production-watcher
+  namespace: default
+spec:
+  namespaceSelector:
+    matchLabels:
+      environment: production
+  secretSelector:
+    matchLabels:
+      auto-refresh: enabled
+```
+
+Apply it:
+```bash
+kubectl apply -f secretsrefresh.yaml
+```
+
+### 5. Update a Secret - Deployments Restart Automatically! 🎉
+
+```bash
+kubectl create secret generic my-secret \
+  --from-literal=password=newpassword \
+  -n my-app \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Watch deployments restart
+kubectl get pods -n my-app -w
+```
+
+## 🔍 How It Works
+
+1. **Watch Secrets** - Operator watches for changes to secrets matching your selectors
+2. **Detect Changes** - When a secret is updated, the operator is notified
+3. **Restart Deployments** - All deployments in the same namespace are restarted by adding an annotation:
+   ```yaml
+   traktor.gdxcloud.net/restartedAt: "2024-01-30T10:30:00Z"
+   ```
+4. **Rolling Update** - Kubernetes performs a rolling restart (zero downtime)
+5. **Pods Get New Secrets** - New pods automatically mount the updated secrets
+
+**Flow Diagram:**
+```
+Secret Update → Operator Detects → Adds Annotation → Rolling Restart → New Pods with Updated Secrets
+```
+
+## 📦 Installation
 
 ### Prerequisites
-- go version v1.24.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+- Kubernetes cluster v1.11.3+
+- kubectl v1.11.3+
+- Cluster admin permissions (for RBAC setup)
 
-```sh
-make docker-build docker-push IMG=<some-registry>/traktor:tag
+### Option 1: Install from Release (Recommended)
+
+```bash
+# Install latest version
+kubectl apply -f https://github.com/GDXbsv/traktor/releases/latest/download/install.yaml
+
+# Install specific version
+kubectl apply -f https://github.com/GDXbsv/traktor/releases/download/v0.0.1/install.yaml
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+### Option 2: Install from Source
 
-**Install the CRDs into the cluster:**
+```bash
+# Clone repository
+git clone https://github.com/GDXbsv/traktor.git
+cd traktor
 
-```sh
+# Install CRDs
 make install
+
+# Deploy operator
+make deploy IMG=docker.io/gdxbsv/traktor:latest
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+### Option 3: Using Kustomize
 
-```sh
-make deploy IMG=<some-registry>/traktor:tag
+```bash
+kubectl apply -k config/default
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+### Verify Installation
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+```bash
+# Check operator is running
+kubectl get pods -n traktor-system
 
-```sh
-kubectl apply -k config/samples/
+# Expected output:
+# NAME                                          READY   STATUS    RESTARTS   AGE
+# traktor-controller-manager-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
+
+# Check CRD is installed
+kubectl get crd secretsrefreshes.apps.gdxcloud.net
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+## ⚙️ Configuration
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
+### SecretsRefresh Custom Resource
 
-```sh
-kubectl delete -k config/samples/
+```yaml
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: my-secrets-watcher
+  namespace: default
+spec:
+  # Filter namespaces by labels
+  namespaceSelector:
+    matchLabels:
+      environment: production
+      team: platform
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [backend, frontend]
+  
+  # Filter secrets by labels
+  secretSelector:
+    matchLabels:
+      auto-refresh: enabled
+    matchExpressions:
+      - key: type
+        operator: NotIn
+        values: [system]
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+### Namespace Selector
 
-```sh
-make uninstall
+**Match by exact labels:**
+```yaml
+namespaceSelector:
+  matchLabels:
+    environment: production
 ```
 
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
+**Match by expressions:**
+```yaml
+namespaceSelector:
+  matchExpressions:
+    - key: team
+      operator: In
+      values: [backend, frontend, platform]
 ```
 
-## Project Distribution
-
-Following the options to release and provide this solution to the users.
-
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/traktor:tag
+**Watch all namespaces:**
+```yaml
+# Omit namespaceSelector entirely
+spec:
+  secretSelector:
+    matchLabels:
+      auto-refresh: enabled
 ```
 
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
+### Secret Selector
 
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/traktor/<tag or branch>/dist/install.yaml
+**Match by labels:**
+```yaml
+secretSelector:
+  matchLabels:
+    auto-refresh: enabled
+    type: app-config
 ```
 
-### By providing a Helm Chart
-
-1. Build the chart using the optional helm plugin
-
-```sh
-operator-sdk edit --plugins=helm/v1-alpha
+**Watch all secrets in matched namespaces:**
+```yaml
+spec:
+  namespaceSelector:
+    matchLabels:
+      environment: production
+  # Omit secretSelector to watch all secrets
 ```
 
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
+## 📝 Examples
 
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
+### Example 1: Production Applications
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+Watch all secrets in production namespaces:
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+```yaml
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: production-watcher
+spec:
+  namespaceSelector:
+    matchLabels:
+      environment: production
+  secretSelector:
+    matchLabels:
+      auto-refresh: enabled
+```
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+**Setup:**
+```bash
+# Label namespaces
+kubectl label namespace app-backend environment=production
+kubectl label namespace app-frontend environment=production
 
-## License
+# Label secrets
+kubectl label secret db-password -n app-backend auto-refresh=enabled
+kubectl label secret api-keys -n app-frontend auto-refresh=enabled
+```
 
-Copyright 2026.
+### Example 2: Database Credentials
+
+Watch only database-related secrets:
+
+```yaml
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: database-credentials-watcher
+spec:
+  namespaceSelector:
+    matchLabels:
+      environment: production
+  secretSelector:
+    matchLabels:
+      type: database-credentials
+```
+
+### Example 3: Multi-Team Setup
+
+Watch secrets across different teams:
+
+```yaml
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: multi-team-watcher
+spec:
+  namespaceSelector:
+    matchExpressions:
+      - key: team
+        operator: In
+        values: [backend, frontend, platform]
+  secretSelector:
+    matchLabels:
+      auto-refresh: enabled
+```
+
+### Example 4: Single Namespace
+
+Watch all secrets in a specific namespace:
+
+```yaml
+apiVersion: apps.gdxcloud.net/v1alpha1
+kind: SecretsRefresh
+metadata:
+  name: staging-watcher
+spec:
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values: [staging]
+```
+
+### More Examples
+
+See [config/samples/](config/samples/) for more complete examples:
+- `quickstart.yaml` - Simple getting started example
+- `example-complete.yaml` - All configuration options
+- `production-example.yaml` - Real-world production setup
+
+## 🛠️ Development
+
+### Prerequisites
+
+- Go v1.24.0+
+- Docker v17.03+
+- kubectl v1.11.3+
+- Access to Kubernetes cluster
+
+### Local Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/GDXbsv/traktor.git
+cd traktor
+
+# Install dependencies
+go mod download
+
+# Install CRDs
+make install
+
+# Run locally (connects to your kubeconfig cluster)
+make run
+```
+
+### Running Tests
+
+```bash
+# Run unit tests
+make test
+
+# Run with coverage
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out
+
+# Run linter
+make lint
+
+# Run E2E tests
+make test-e2e
+```
+
+### Building
+
+```bash
+# Build binary
+make build
+
+# Build Docker image
+make docker-build
+
+# Build and push (multi-arch)
+export IMG=docker.io/yourusername/traktor:dev
+make docker-build docker-push IMG=$IMG
+
+# Deploy to cluster
+make deploy IMG=$IMG
+```
+
+### Project Structure
+
+```
+traktor/
+├── api/v1alpha1/           # API definitions (CRDs)
+├── cmd/                    # Main application entry point
+├── config/                 # Kubernetes manifests
+│   ├── crd/               # CRD definitions
+│   ├── manager/           # Operator deployment
+│   ├── rbac/              # RBAC manifests
+│   └── samples/           # Example configurations
+├── internal/controller/    # Controller logic
+├── test/e2e/              # End-to-end tests
+└── docs/                  # Documentation
+```
+
+## 📚 Documentation
+
+- **[Installation Guide](DEPLOYMENT.md)** - Detailed deployment instructions
+- **[Testing Guide](TESTING.md)** - How to run and write tests
+- **[CI/CD Setup](docs/CICD_SETUP.md)** - Setting up GitHub Actions
+- **[Examples](config/samples/)** - Configuration examples
+- **[Architecture](.github/workflows/README.md)** - How the operator works
+
+## 🔒 Security
+
+### Vulnerability Scanning
+
+All releases are scanned with Trivy for vulnerabilities. See [Security tab](../../security) for reports.
+
+### RBAC Permissions
+
+The operator requires the following permissions:
+- Read secrets in all namespaces
+- Read namespaces
+- Update deployments
+
+See [config/rbac/](config/rbac/) for complete RBAC configuration.
+
+### Reporting Security Issues
+
+Please report security vulnerabilities to security@gdxcloud.net
+
+## 🚢 Releases
+
+### Creating a Release
+
+```bash
+# Tag the release
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+GitHub Actions will automatically:
+- Run all tests
+- Build multi-arch images
+- Generate Kubernetes manifests
+- Create GitHub release with artifacts
+- Push Docker images with proper tags
+
+### Release Artifacts
+
+Each release includes:
+- `install.yaml` - Complete installation manifest
+- `traktor-vX.Y.Z-manifests.tar.gz` - All manifests packaged
+- `sbom-vX.Y.Z.spdx.json` - Software Bill of Materials
+- Docker images for AMD64 and ARM64
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Add tests for your changes
+5. Run tests locally (`make test`)
+6. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+### Code Style
+
+- Follow Go best practices
+- Run `make lint` before committing
+- Write tests for new features
+- Update documentation as needed
+
+## 🐛 Troubleshooting
+
+### Deployments Not Restarting
+
+**Check operator logs:**
+```bash
+kubectl logs -n traktor-system deployment/traktor-controller-manager -f
+```
+
+**Verify labels:**
+```bash
+# Check namespace labels
+kubectl get namespace my-app --show-labels
+
+# Check secret labels
+kubectl get secrets -n my-app --show-labels
+```
+
+**Verify SecretsRefresh exists:**
+```bash
+kubectl get secretsrefresh
+```
+
+### Operator Crashes
+
+**Check for OOM:**
+```bash
+kubectl describe pod -n traktor-system -l control-plane=controller-manager
+```
+
+**Increase memory limit in `config/manager/manager.yaml`:**
+```yaml
+resources:
+  limits:
+    memory: 1Gi  # Increase from 512Mi
+```
+
+### More Help
+
+- Check [Documentation](#documentation)
+- Open an [Issue](../../issues)
+- Review [Closed Issues](../../issues?q=is%3Aissue+is%3Aclosed)
+
+## 📊 Metrics
+
+The operator exposes Prometheus metrics on port 8443:
+
+- `controller_runtime_reconcile_total` - Total reconciliations
+- `controller_runtime_reconcile_errors_total` - Reconciliation errors
+- `workqueue_*` - Work queue metrics
+
+Access metrics:
+```bash
+kubectl port-forward -n traktor-system svc/traktor-controller-manager-metrics-service 8443:8443
+curl -k https://localhost:8443/metrics
+```
+
+## 🔗 Related Projects
+
+- [Reloader](https://github.com/stakater/Reloader) - Similar project with different approach
+- [Wave](https://github.com/wave-k8s/wave) - ConfigMap and Secret change detection
+
+## 📄 License
+
+Copyright 2026 GDX Cloud.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -133,3 +550,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+## 🌟 Star History
+
+If you find this project useful, please consider giving it a star! ⭐
+
+## 📞 Contact
+
+- **Issues**: [GitHub Issues](../../issues)
+- **Discussions**: [GitHub Discussions](../../discussions)
+- **Email**: support@gdxcloud.net
+- **Website**: https://gdxcloud.net
+
+---
+
+**Built with ❤️ using [Kubebuilder](https://book.kubebuilder.io/)**
