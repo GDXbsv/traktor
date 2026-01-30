@@ -1,0 +1,346 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: gdxbsv/traktor
+
+jobs:
+  validate-tag:
+    name: Validate Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_prerelease: ${{ steps.check_prerelease.outputs.is_prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate tag format
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Invalid tag format: ${{ github.ref_name }}"
+            echo "Expected format: v1.2.3 or v1.2.3-alpha"
+            exit 1
+          fi
+
+      - name: Get version
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Check if prerelease
+        id: check_prerelease
+        run: |
+          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: validate-tag
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run unit tests
+        run: make test
+
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1.0
+          args: --timeout=5m
+
+  build-multi-arch:
+    name: Build Multi-Architecture Images
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
+
+      - name: Build and push multi-arch image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.validate-tag.outputs.version }}
+            COMMIT_SHA=${{ github.sha }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          format: spdx-json
+          output-file: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
+
+  generate-manifests:
+    name: Generate Release Manifests
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-multi-arch]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Generate CRDs
+        run: make manifests
+
+      - name: Generate install manifest
+        run: |
+          IMG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          make build-installer IMG=$IMG
+
+      - name: Verify manifest
+        run: |
+          if [ ! -f dist/install.yaml ]; then
+            echo "install.yaml not generated"
+            exit 1
+          fi
+          echo "Manifest size: $(wc -l < dist/install.yaml) lines"
+
+      - name: Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-manifest
+          path: dist/install.yaml
+
+      - name: Generate kustomize examples
+        run: |
+          mkdir -p release-artifacts
+          cp dist/install.yaml release-artifacts/install.yaml
+          cp -r config/samples release-artifacts/
+          cd release-artifacts && tar -czf traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz install.yaml samples/
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: release-artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz
+
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-multi-arch]
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy in table mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Fail on critical vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-multi-arch, generate-manifests, security-scan]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: install-manifest
+          path: ./artifacts/
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: ./artifacts/
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: ./artifacts/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            echo "First release"
+            CHANGELOG="Initial release of Traktor Operator"
+          else
+            echo "Generating changelog from $PREV_TAG to ${{ github.ref_name }}"
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%an)" --no-merges)
+          fi
+          
+          # Save to file
+          cat > CHANGELOG.md << EOF
+          ## What's Changed
+          
+          ${CHANGELOG}
+          
+          ## Docker Images
+          
+          \`\`\`bash
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          \`\`\`
+          
+          ## Installation
+          
+          \`\`\`bash
+          kubectl apply -f https://github.com/GDXbsv/traktor/releases/download/${{ github.ref_name }}/install.yaml
+          \`\`\`
+          
+          ## Supported Architectures
+          
+          - linux/amd64
+          - linux/arm64
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ github.ref_name }}
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ needs.validate-tag.outputs.version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ needs.validate-tag.outputs.is_prerelease }}
+          files: |
+            artifacts/install.yaml
+            artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz
+            artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  update-docs:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    needs: [validate-tag, create-release]
+    if: needs.validate-tag.outputs.is_prerelease == 'false'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update README version
+        run: |
+          VERSION=${{ needs.validate-tag.outputs.version }}
+          sed -i "s/traktor:v[0-9]*\.[0-9]*\.[0-9]*/traktor:v${VERSION}/g" README.md
+          sed -i "s/traktor:latest/traktor:v${VERSION}/g" README.md
+
+      - name: Create PR for version update
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: update version to ${{ needs.validate-tag.outputs.version }}"
+          title: "docs: update documentation for release ${{ needs.validate-tag.outputs.version }}"
+          body: |
+            Automated PR to update documentation after release ${{ needs.validate-tag.outputs.version }}
+            
+            - Updated version references in README.md
+            - Updated Docker image tags
+          branch: docs/update-version-${{ needs.validate-tag.outputs.version }}
+          delete-branch: true
+
+  notify-success:
+    name: Notify Release Success
+    runs-on: ubuntu-latest
+    needs: [validate-tag, create-release]
+    if: success()
+    steps:
+      - name: Release summary
+        run: |
+          echo "🎉 Release ${{ github.ref_name }} completed successfully!"
+          echo ""
+          echo "📦 Docker Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}"
+          echo "📄 Release Notes: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          echo ""
+          echo "Installation:"
+          echo "kubectl apply -f https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/install.yaml"

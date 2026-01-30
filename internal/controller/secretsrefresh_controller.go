@@ -44,7 +44,7 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// This reconcile is triggered by a Secret change (via SetupWithManager Watches)
 	// The Secret has already been filtered by namespace and label selectors
 	// req.Name contains the Secret's namespace where we need to restart deployments
-	
+
 	secretNamespace := req.Name
 
 	// Safety check: Skip if this is the operator's own namespace to prevent self-restart loop
@@ -52,7 +52,7 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if operatorNamespace == "" {
 		operatorNamespace = "traktor-system" // fallback to default
 	}
-	
+
 	if secretNamespace == operatorNamespace {
 		logger.Info("Skipping operator's own namespace to prevent self-restart", "namespace", secretNamespace)
 		return ctrl.Result{}, nil

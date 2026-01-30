@@ -18,67 +18,204 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	appsv1alpha1 "github.com/GDXbsv/traktor/api/v1alpha1"
 )
 
 var _ = Describe("SecretsRefresh Controller", func() {
+	const (
+		timeout  = time.Second * 10
+		interval = time.Millisecond * 250
+	)
+
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+		var (
+			secretsRefreshName string
+			testNamespace      string
+			deploymentName     string
+			secretName         string
+		)
 
 		ctx := context.Background()
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		secretsrefresh := &appsv1alpha1.SecretsRefresh{}
+		namespace := &corev1.Namespace{}
+		secretsRefresh := &appsv1alpha1.SecretsRefresh{}
+		deployment := &appsv1.Deployment{}
+		secret := &corev1.Secret{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind SecretsRefresh")
-			err := k8sClient.Get(ctx, typeNamespacedName, secretsrefresh)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &appsv1alpha1.SecretsRefresh{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+			// Generate unique names to avoid conflicts
+			uniqueID := fmt.Sprintf("%d", time.Now().UnixNano())
+			testNamespace = fmt.Sprintf("test-ns-%s", uniqueID)
+			secretsRefreshName = fmt.Sprintf("test-sr-%s", uniqueID)
+			deploymentName = fmt.Sprintf("test-deploy-%s", uniqueID)
+			secretName = fmt.Sprintf("test-secret-%s", uniqueID)
+
+			By("Creating the test namespace")
+			namespace = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: testNamespace,
+					Labels: map[string]string{
+						"environment": "test",
+						"team":        "platform",
 					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				},
 			}
+			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+			By("Creating a test deployment")
+			deployment = &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deploymentName,
+					Namespace: testNamespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "test",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "test",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "nginx",
+									Image: "nginx:alpine",
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, deployment)).To(Succeed())
+
+			By("Creating a test secret with labels")
+			secret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						"auto-refresh": "enabled",
+						"type":         "app-config",
+					},
+				},
+				StringData: map[string]string{
+					"password": "initial-password",
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			By("Creating the SecretsRefresh resource")
+			secretsRefresh = &appsv1alpha1.SecretsRefresh{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretsRefreshName,
+					Namespace: "default",
+				},
+				Spec: appsv1alpha1.SecretsRefreshSpec{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"environment": "test",
+						},
+					},
+					SecretSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"auto-refresh": "enabled",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, secretsRefresh)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &appsv1alpha1.SecretsRefresh{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+			By("Cleaning up test resources")
 
-			By("Cleanup the specific resource instance SecretsRefresh")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			// Delete namespace (cascades to all resources in it)
+			ns := &corev1.Namespace{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace}, ns)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, ns)).To(Succeed())
+			}
+
+			// Delete SecretsRefresh
+			resource := &appsv1alpha1.SecretsRefresh{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: secretsRefreshName, Namespace: "default"}, resource)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			}
 		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
+
+		It("should successfully reconcile and restart deployment when secret changes", func() {
+			By("Reconciling with the test namespace name (simulating secret change)")
 			controllerReconciler := &SecretsRefreshReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
+				NamespacedName: types.NamespacedName{
+					Name:      testNamespace,
+					Namespace: "default",
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+
+			By("Verifying the deployment has restart annotation")
+			Eventually(func() bool {
+				updatedDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      deploymentName,
+					Namespace: testNamespace,
+				}, updatedDeployment)
+				if err != nil {
+					return false
+				}
+
+				annotations := updatedDeployment.Spec.Template.Annotations
+				_, hasAnnotation := annotations["traktor.gdxcloud.net/restartedAt"]
+				return hasAnnotation
+			}, timeout, interval).Should(BeTrue())
+		})
+
+		It("should filter namespaces correctly based on selector", func() {
+			By("Getting filtered namespaces")
+			controllerReconciler := &SecretsRefreshReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			namespaces, err := controllerReconciler.getFilteredNamespaces(ctx, secretsRefresh)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying test namespace is included")
+			found := false
+			for _, ns := range namespaces {
+				if ns.Name == testNamespace {
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue())
 		})
 	})
 })
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}

@@ -76,7 +76,7 @@ func setGOMEMLIMIT() {
 
 	// Set to 90% of the limit to leave headroom
 	goMemLimit := int64(float64(memLimit) * 0.9)
-	
+
 	debug.SetMemoryLimit(goMemLimit)
 	setupLog.Info("Set GOMEMLIMIT", "limit", formatBytes(goMemLimit), "container-limit", formatBytes(memLimit))
 }
@@ -84,7 +84,7 @@ func setGOMEMLIMIT() {
 // parseMemory parses memory string (e.g., "512Mi", "1Gi", "536870912") to bytes
 func parseMemory(s string) (int64, error) {
 	s = strings.TrimSpace(s)
-	
+
 	// If it's just a number, assume bytes
 	if val, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return val, nil
