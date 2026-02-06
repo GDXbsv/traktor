@@ -455,7 +455,7 @@ jobs:
           
           # Add Artifact Hub repository metadata
           cat > gh-pages/artifacthub-repo.yml << 'EOF'
-          repositoryID: 34d9fb13-9e08-42a6-b711-d6766ef3af48
+          repositoryID: 2a1be652-53bf-42c6-a2b5-7b87f26bc585
           displayName: Traktor Operator
           owners:
             - name: GDX Cloud
