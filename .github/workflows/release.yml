@@ -392,6 +392,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-tag, create-release]
     if: needs.validate-tag.outputs.is_prerelease == 'false'
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -410,15 +413,21 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: main
+          branch: docs/update-version-${{ needs.validate-tag.outputs.version }}
           commit-message: "docs: update version to ${{ needs.validate-tag.outputs.version }}"
           title: "docs: update documentation for release ${{ needs.validate-tag.outputs.version }}"
           body: |
             Automated PR to update documentation after release ${{ needs.validate-tag.outputs.version }}
             
+            ## Changes
             - Updated version references in README.md
             - Updated Docker image tags
-          branch: docs/update-version-${{ needs.validate-tag.outputs.version }}
+            
+            ## Release
+            https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
           delete-branch: true
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
 
   publish-helm-repo:
     name: Publish Helm Repository to GitHub Pages
