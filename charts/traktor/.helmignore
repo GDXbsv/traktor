@@ -13,6 +13,3 @@
 .hgignore
 .svn/
 *.md
-!README.md
-!Chart.yaml
-!values.yaml
