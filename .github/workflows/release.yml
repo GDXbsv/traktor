@@ -107,6 +107,14 @@ jobs:
             type=semver,pattern={{major}},enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
             type=raw,value=latest,enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
 
+      - name: Debug metadata
+        run: |
+          echo "Generated tags:"
+          echo "${{ steps.meta.outputs.tags }}"
+          echo ""
+          echo "Version: ${{ steps.meta.outputs.version }}"
+          echo "Digest will be available after build"
+
       - name: Build and push multi-arch image
         id: build
         uses: docker/build-push-action@v6
@@ -125,10 +133,15 @@ jobs:
           provenance: false
           sbom: false
 
+      - name: Debug build output
+        run: |
+          echo "Build digest: ${{ steps.build.outputs.digest }}"
+          echo "Image reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
 
@@ -247,7 +260,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-multi-arch.outputs.digest }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -260,14 +273,14 @@ jobs:
       - name: Run Trivy in table mode
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-multi-arch.outputs.digest }}
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
 
       - name: Fail on critical vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-multi-arch.outputs.digest }}
           format: 'table'
           exit-code: '1'
           severity: 'CRITICAL'
