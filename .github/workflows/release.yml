@@ -311,6 +311,8 @@ jobs:
     needs: [validate-tag, build-multi-arch, generate-manifests, package-helm-chart, security-scan]
     permissions:
       contents: write
+      pull-requests: read
+      repository-projects: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
