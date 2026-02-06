@@ -402,17 +402,59 @@ jobs:
             PRERELEASE_FLAG=""
           fi
           
-          # Create release with body from file
+          # List available artifacts for debugging
+          echo "Available artifacts:"
+          find artifacts -type f
+          
+          # Build file list, checking each file exists
+          FILES=""
+          
+          # Required files
+          if [ -f "artifacts/install.yaml" ]; then
+            FILES="$FILES artifacts/install.yaml"
+          else
+            echo "Warning: install.yaml not found"
+          fi
+          
+          if [ -f "artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz" ]; then
+            FILES="$FILES artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz"
+          else
+            echo "Warning: manifests tarball not found"
+          fi
+          
+          if [ -f "artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json" ]; then
+            FILES="$FILES artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json"
+          else
+            echo "Warning: SBOM file not found"
+          fi
+          
+          # Helm files
+          if [ -f "artifacts/helm/index.yaml" ]; then
+            FILES="$FILES artifacts/helm/index.yaml"
+          else
+            echo "Warning: Helm index.yaml not found"
+          fi
+          
+          # Add all helm chart tgz files
+          for chart in artifacts/helm/*.tgz; do
+            if [ -f "$chart" ]; then
+              FILES="$FILES $chart"
+            fi
+          done
+          
+          # Create release with available files
+          if [ -z "$FILES" ]; then
+            echo "Error: No artifacts found to upload"
+            exit 1
+          fi
+          
+          echo "Creating release with files: $FILES"
           gh release create ${{ github.ref_name }} \
             --repo ${{ github.repository }} \
             --title "Release ${{ needs.validate-tag.outputs.version }}" \
             --notes-file CHANGELOG.md \
             $PRERELEASE_FLAG \
-            artifacts/install.yaml \
-            artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz \
-            artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json \
-            artifacts/helm/*.tgz \
-            artifacts/helm/index.yaml
+            $FILES
 
   update-docs:
     name: Update Documentation
