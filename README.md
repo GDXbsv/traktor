@@ -153,7 +153,7 @@ cd traktor
 make install
 
 # Deploy operator
-make deploy IMG=docker.io/gdxbsv/traktor:v0.0.7
+make deploy IMG=docker.io/gdxbsv/traktor:v0.0.8
 ```
 
 ### Option 3: Install Using Helm from Source
