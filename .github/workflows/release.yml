@@ -144,6 +144,8 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
