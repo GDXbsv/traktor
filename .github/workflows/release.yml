@@ -146,7 +146,8 @@ jobs:
           output-file: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
           upload-artifact: false
           upload-release-assets: false
-          github-token: ''
+        env:
+          GITHUB_TOKEN: ''
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
@@ -457,6 +458,13 @@ jobs:
 
       - name: Update Helm repository
         run: |
+          # Remove old chart versions with invalid metadata
+          # This prevents Artifact Hub validation errors
+          rm -f gh-pages/traktor-0.0.1.tgz || true
+          rm -f gh-pages/traktor-0.0.2.tgz || true
+          rm -f gh-pages/traktor-0.0.4.tgz || true
+          rm -f gh-pages/traktor-0.0.5.tgz || true
+          
           # Copy new package to gh-pages
           mkdir -p gh-pages
           cp helm-artifacts/*.tgz gh-pages/ || true
