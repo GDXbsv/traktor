@@ -135,13 +135,14 @@ The CI/CD pipeline consists of several workflows:
 ### 5. Release Workflow (`release.yml`)
 
 **Triggers:**
-- Push tags matching `v*.*.*` (e.g., v1.0.0, v1.2.3-alpha)
+- Push tags matching `v*.*.*` or `*.*.*` (e.g., v1.0.0, 1.0.0, v1.2.3-alpha, 1.2.3-alpha)
+- Supports tags both with and without the 'v' prefix
 
 **Jobs:**
 
 #### 5.1 Validate Tag
-- Verify tag format (v1.2.3 or v1.2.3-alpha)
-- Extract version number
+- Verify tag format (v1.2.3, 1.2.3, v1.2.3-alpha, or 1.2.3-alpha)
+- Extract version number (strips 'v' prefix if present)
 - Detect prerelease (alpha, beta, rc)
 
 #### 5.2 Run Tests
@@ -248,11 +249,20 @@ git push origin release/v1.2.3
 ```
 
 #### 2. Create and Push Tag
+
+Tags can be created with or without the 'v' prefix:
+
 ```bash
 git checkout main
 git pull origin main
+
+# Option 1: With 'v' prefix (recommended)
 git tag -a v1.2.3 -m "Release v1.2.3"
 git push origin v1.2.3
+
+# Option 2: Without 'v' prefix
+git tag -a 1.2.3 -m "Release 1.2.3"
+git push origin 1.2.3
 ```
 
 #### 3. Automated Release Process
@@ -278,16 +288,18 @@ Check:
 
 ### Prerelease (Alpha/Beta/RC)
 
+Tags can use either format:
+
 ```bash
-# Alpha release
+# Alpha release (with 'v' prefix)
 git tag -a v1.2.3-alpha.1 -m "Alpha release v1.2.3-alpha.1"
 git push origin v1.2.3-alpha.1
 
-# Beta release
-git tag -a v1.2.3-beta.1 -m "Beta release v1.2.3-beta.1"
-git push origin v1.2.3-beta.1
+# Beta release (without 'v' prefix)
+git tag -a 1.2.3-beta.1 -m "Beta release 1.2.3-beta.1"
+git push origin 1.2.3-beta.1
 
-# Release candidate
+# Release candidate (with 'v' prefix)
 git tag -a v1.2.3-rc.1 -m "Release candidate v1.2.3-rc.1"
 git push origin v1.2.3-rc.1
 ```
@@ -416,7 +428,7 @@ go test -race ./internal/controller/...
 ### Release Not Created
 
 **Check:**
-1. Tag format is correct: `v1.2.3`
+1. Tag format is correct: `v1.2.3` or `1.2.3` (both formats supported)
 2. All tests passed
 3. Security scan passed (no CRITICAL vulns)
 4. GitHub token has proper permissions
