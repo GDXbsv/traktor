@@ -2,6 +2,7 @@ apiVersion: v2
 name: traktor
 description: A Kubernetes operator that automatically restarts deployments when secrets change
 type: application
+# NOTE: version and appVersion are automatically updated during release by the CI/CD pipeline
 version: 0.0.1
 appVersion: "0.0.1"
 
@@ -61,6 +62,7 @@ annotations:
       url: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
     - name: Chart Source
       url: https://github.com/GDXbsv/traktor/tree/main/charts/traktor
+  # NOTE: The release URL below is automatically updated during release by the CI/CD pipeline
   artifacthub.io/changes: |
     - kind: added
       description: Initial release of Traktor operator

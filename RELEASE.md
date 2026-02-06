@@ -121,6 +121,47 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ---
 
+## Automated Version Synchronization
+
+**Important**: You do NOT need to manually update version numbers in Chart.yaml or values.yaml before creating a release. The CI/CD pipeline automatically synchronizes all version references when you push a tag.
+
+### What Gets Updated Automatically
+
+When you push a tag like `v1.2.3`, the release workflow automatically updates:
+
+1. **Chart.yaml**:
+   - `version: 1.2.3`
+   - `appVersion: "1.2.3"`
+   - Release URL in `artifacthub.io/changes` annotation
+
+2. **values.yaml**:
+   - `image.tag: "1.2.3"`
+
+3. **Generated manifests**:
+   - All Kubernetes manifests with correct image version
+
+### Manual Version Updates (Optional)
+
+If you need to update versions manually (e.g., for testing), use the helper script:
+
+```bash
+# Update chart to version 1.2.3
+./hack/update-chart-version.sh 1.2.3
+
+# Show current version
+./hack/update-chart-version.sh --current
+
+# Dry run to preview changes
+./hack/update-chart-version.sh --dry-run 1.2.3
+
+# Update only Chart.yaml (skip values.yaml)
+./hack/update-chart-version.sh --skip-values 1.2.3
+```
+
+**Note**: Manual updates are rarely needed since releases handle this automatically.
+
+---
+
 ## Step-by-Step Release Process
 
 ### 1. Prepare the Release
@@ -137,6 +178,9 @@ make build
 
 # Optional: Update CHANGELOG.md manually if needed
 # (Automated changelog will be generated from git commits)
+
+# DO NOT manually update Chart.yaml or values.yaml versions
+# The release workflow handles this automatically
 ```
 
 ### 2. Create the Tag
@@ -355,6 +399,7 @@ Check:
 - ✅ Update documentation if needed
 - ✅ Review commits since last release
 - ✅ Check for open critical issues
+- ❌ **DO NOT** manually update Chart.yaml or values.yaml versions (automated)
 
 ### Tag Message
 
@@ -448,13 +493,19 @@ For more details about the release pipeline, see [.github/workflows/README.md](.
 ## Quick Reference
 
 ```bash
-# Create stable release
+# Create stable release (versions auto-sync)
 git tag -a v1.2.3 -m "Release v1.2.3"
 git push origin v1.2.3
 
-# Create prerelease
+# Create prerelease (versions auto-sync)
 git tag -a v1.2.3-alpha.1 -m "Alpha release"
 git push origin v1.2.3-alpha.1
+
+# Manual version update (optional, rarely needed)
+./hack/update-chart-version.sh 1.2.3
+
+# Check current chart version
+./hack/update-chart-version.sh --current
 
 # Delete tag
 git tag -d v1.2.3
