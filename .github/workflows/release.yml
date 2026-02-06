@@ -395,13 +395,13 @@ jobs:
     if: needs.validate-tag.outputs.is_prerelease == 'false'
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update README version
         run: |
@@ -409,26 +409,20 @@ jobs:
           sed -i "s/traktor:v[0-9]*\.[0-9]*\.[0-9]*/traktor:v${VERSION}/g" README.md
           sed -i "s/traktor:latest/traktor:v${VERSION}/g" README.md
 
-      - name: Create PR for version update
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: main
-          branch: docs/update-version-${{ needs.validate-tag.outputs.version }}
-          commit-message: "docs: update version to ${{ needs.validate-tag.outputs.version }}"
-          title: "docs: update documentation for release ${{ needs.validate-tag.outputs.version }}"
-          body: |
-            Automated PR to update documentation after release ${{ needs.validate-tag.outputs.version }}
-            
-            ## Changes
-            - Updated version references in README.md
-            - Updated Docker image tags
-            
-            ## Release
-            https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
-          delete-branch: true
-          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
-          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add README.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git commit -m "docs: update version to ${{ needs.validate-tag.outputs.version }} [skip ci]"
+          git push origin main
 
   publish-helm-repo:
     name: Publish Helm Repository to GitHub Pages
