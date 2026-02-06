@@ -249,6 +249,36 @@ git push
 git restore charts/  # Undo changes
 ```
 
+### Detached HEAD error in update-docs job
+
+**Problem**: `peter-evans/create-pull-request` fails with:
+```
+Error: When the repository is checked out on a commit instead of a branch, 
+the 'base' input must be supplied.
+```
+
+**Cause**: The `actions/checkout@v4` by default checks out the tag (detached HEAD state) when triggered by a tag push.
+
+**Solution**: Already fixed in the workflow. The `update-docs` job now explicitly checks out the `main` branch:
+
+```yaml
+- name: Checkout code
+  uses: actions/checkout@v4
+  with:
+    ref: main              # Checkout main branch instead of tag
+    fetch-depth: 0         # Full history for proper git operations
+
+- name: Create PR for version update
+  uses: peter-evans/create-pull-request@v6
+  with:
+    base: main             # Specify base branch explicitly
+    # ... other options
+```
+
+If you see this error, ensure your workflow has these two additions:
+1. `ref: main` in the checkout step
+2. `base: main` in the create-pull-request step
+
 ## Semantic Versioning
 
 The automated system supports full semantic versioning:

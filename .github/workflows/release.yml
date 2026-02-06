@@ -395,6 +395,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Update README version
         run: |
@@ -406,6 +409,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
           commit-message: "docs: update version to ${{ needs.validate-tag.outputs.version }}"
           title: "docs: update documentation for release ${{ needs.validate-tag.outputs.version }}"
           body: |
