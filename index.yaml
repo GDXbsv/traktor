@@ -45,7 +45,7 @@ entries:
         url: https://github.com/GDXbsv/traktor/blob/main/PUBLIC_KEY.asc
     apiVersion: v2
     appVersion: 0.0.4
-    created: "2026-02-06T13:59:02.857076438Z"
+    created: "2026-02-06T14:02:59.671819223Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 7dadf92a07ddc6df0fc3b2d294923edb14c1726ce7e8de35ff6c7b546522c555
@@ -112,8 +112,76 @@ entries:
         fingerprint: ...
         url: https://github.com/GDXbsv/traktor/blob/main/PUBLIC_KEY.asc
     apiVersion: v2
+    appVersion: 0.0.2
+    created: "2026-02-06T14:02:59.671071859Z"
+    description: A Kubernetes operator that automatically restarts deployments when
+      secrets change
+    digest: 920e42458e0d3b75879f0e7ccd4c48c59ed3b193141c31a48d3470ee41926f17
+    home: https://github.com/GDXbsv/traktor
+    icon: https://raw.githubusercontent.com/GDXbsv/traktor/main/docs/images/logo.png
+    keywords:
+    - kubernetes
+    - operator
+    - secrets
+    - deployment
+    - restart
+    - automation
+    maintainers:
+    - email: support@gdxcloud.net
+      name: GDX Cloud
+      url: https://gdxcloud.net
+    name: traktor
+    sources:
+    - https://github.com/GDXbsv/traktor
+    type: application
+    urls:
+    - https://gdxbsv.github.io/traktor/traktor-0.0.2.tgz
+    version: 0.0.2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Initial release of Traktor operator
+          links:
+            - name: GitHub Release
+              url: https://github.com/GDXbsv/traktor/releases/tag/v0.0.1
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/crds: |
+        - kind: SecretsRefresh
+          version: v1alpha1
+          name: secretsrefreshes.apps.gdxcloud.net
+          displayName: Secrets Refresh
+          description: Watches secrets and restarts deployments on changes
+      artifacthub.io/crdsExamples: |
+        - apiVersion: apps.gdxcloud.net/v1alpha1
+          kind: SecretsRefresh
+          metadata:
+            name: production-watcher
+          spec:
+            namespaceSelector:
+              matchLabels:
+                environment: production
+            secretSelector:
+              matchLabels:
+                auto-refresh: enabled
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/GDXbsv/traktor/blob/main/README.md
+        - name: Installation Guide
+          url: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
+        - name: Chart Source
+          url: https://github.com/GDXbsv/traktor/tree/main/charts/traktor
+      artifacthub.io/operator: "true"
+      artifacthub.io/operatorCapabilities: Basic Install
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/recommendations: |
+        - url: https://github.com/GDXbsv/traktor
+      artifacthub.io/signKey: |
+        fingerprint: ...
+        url: https://github.com/GDXbsv/traktor/blob/main/PUBLIC_KEY.asc
+    apiVersion: v2
     appVersion: 0.0.1
-    created: "2026-02-06T13:59:02.856240823Z"
+    created: "2026-02-06T14:02:59.670165299Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 14a68c127434e77e5b57f8e1a4f4e3c761ce800d007436f5ab827991deec59c4
@@ -137,4 +205,4 @@ entries:
     urls:
     - https://gdxbsv.github.io/traktor/traktor-0.0.1.tgz
     version: 0.0.1
-generated: "2026-02-06T13:59:02.855257011Z"
+generated: "2026-02-06T14:02:59.669165145Z"
