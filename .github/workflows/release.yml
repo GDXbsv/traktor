@@ -75,7 +75,7 @@ jobs:
     needs: test
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
       packages: write
     outputs:
       digest: ${{ steps.build.outputs.digest }}
@@ -144,8 +144,9 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
-          upload-artifact: true
+          upload-artifact: false
           upload-release-assets: false
+          github-token: ''
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
