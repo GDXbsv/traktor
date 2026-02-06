@@ -32,9 +32,6 @@ annotations:
   artifacthub.io/operatorCapabilities: Basic Install
   artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"
-  artifacthub.io/signKey: |
-    fingerprint: ...
-    url: https://github.com/GDXbsv/traktor/blob/main/PUBLIC_KEY.asc
   artifacthub.io/crds: |
     - kind: SecretsRefresh
       version: v1alpha1
