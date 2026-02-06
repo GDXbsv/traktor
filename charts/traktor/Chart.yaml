@@ -22,7 +22,7 @@ maintainers:
     email: support@gdxcloud.net
     url: https://gdxcloud.net
 
-icon: https://raw.githubusercontent.com/GDXbsv/traktor/main/docs/images/logo.png
+icon: https://raw.githubusercontent.com/GDXbsv/traktor/main/docs/images/logo.svg
 
 annotations:
   # Artifact Hub specific annotations
