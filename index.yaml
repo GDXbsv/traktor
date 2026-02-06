@@ -7,6 +7,71 @@ entries:
           description: Initial release of Traktor operator
           links:
             - name: GitHub Release
+              url: https://github.com/GDXbsv/traktor/releases/tag/v0.0.9
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/crds: |
+        - kind: SecretsRefresh
+          version: v1alpha1
+          name: secretsrefreshes.apps.gdxcloud.net
+          displayName: Secrets Refresh
+          description: Watches secrets and restarts deployments on changes
+      artifacthub.io/crdsExamples: |
+        - apiVersion: apps.gdxcloud.net/v1alpha1
+          kind: SecretsRefresh
+          metadata:
+            name: production-watcher
+          spec:
+            namespaceSelector:
+              matchLabels:
+                environment: production
+            secretSelector:
+              matchLabels:
+                auto-refresh: enabled
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/GDXbsv/traktor/blob/main/README.md
+        - name: Installation Guide
+          url: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
+        - name: Chart Source
+          url: https://github.com/GDXbsv/traktor/tree/main/charts/traktor
+      artifacthub.io/operator: "true"
+      artifacthub.io/operatorCapabilities: Basic Install
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/recommendations: |
+        - url: https://github.com/GDXbsv/traktor
+    apiVersion: v2
+    appVersion: 0.0.9
+    created: "2026-02-06T16:27:06.600362649Z"
+    description: A Kubernetes operator that automatically restarts deployments when
+      secrets change
+    digest: a8aa7b21f0d4b45d7d544dc59da54e197963e5735ee38072eac03589478ceb02
+    home: https://github.com/GDXbsv/traktor
+    icon: https://raw.githubusercontent.com/GDXbsv/traktor/main/docs/images/logo.svg
+    keywords:
+    - kubernetes
+    - operator
+    - secrets
+    - deployment
+    - restart
+    - automation
+    maintainers:
+    - email: support@gdxcloud.net
+      name: GDX Cloud
+      url: https://gdxcloud.net
+    name: traktor
+    sources:
+    - https://github.com/GDXbsv/traktor
+    type: application
+    urls:
+    - https://gdxbsv.github.io/traktor/traktor-0.0.9.tgz
+    version: 0.0.9
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Initial release of Traktor operator
+          links:
+            - name: GitHub Release
               url: https://github.com/GDXbsv/traktor/releases/tag/v0.0.8
       artifacthub.io/containsSecurityUpdates: "false"
       artifacthub.io/crds: |
@@ -42,7 +107,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.8
-    created: "2026-02-06T16:21:45.284782213Z"
+    created: "2026-02-06T16:27:06.599593165Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 88b4fbee2b17add4886415a87911996ce8d89ffea553afa5be2886f0d3366403
@@ -107,7 +172,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.7
-    created: "2026-02-06T16:21:45.28401928Z"
+    created: "2026-02-06T16:27:06.598780109Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 13e448a365789dc0723a7441be50cac99a4d1fd19ac677ebc6f62f4f0186181c
@@ -172,7 +237,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.6
-    created: "2026-02-06T16:21:45.283293997Z"
+    created: "2026-02-06T16:27:06.598010144Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: c6427b01784f31b5cc0ce59c904254eba89dc5ea3e52b0dff50db9c98037e819
@@ -196,4 +261,4 @@ entries:
     urls:
     - https://gdxbsv.github.io/traktor/traktor-0.0.6.tgz
     version: 0.0.6
-generated: "2026-02-06T16:21:45.282374763Z"
+generated: "2026-02-06T16:27:06.597104605Z"
