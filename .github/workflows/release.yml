@@ -391,20 +391,28 @@ jobs:
           **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ github.ref_name }}
           EOF
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Release ${{ needs.validate-tag.outputs.version }}
-          body_path: CHANGELOG.md
-          draft: false
-          prerelease: ${{ needs.validate-tag.outputs.is_prerelease }}
-          files: |
-            artifacts/install.yaml
-            artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz
-            artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
-            artifacts/helm/*.tgz
+      - name: Create Release with GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Determine if prerelease
+          if [ "${{ needs.validate-tag.outputs.is_prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          else
+            PRERELEASE_FLAG=""
+          fi
+          
+          # Create release with body from file
+          gh release create ${{ github.ref_name }} \
+            --repo ${{ github.repository }} \
+            --title "Release ${{ needs.validate-tag.outputs.version }}" \
+            --notes-file CHANGELOG.md \
+            $PRERELEASE_FLAG \
+            artifacts/install.yaml \
+            artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz \
+            artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json \
+            artifacts/helm/*.tgz \
             artifacts/helm/index.yaml
-          token: ${{ secrets.GITHUB_TOKEN }}
 
   update-docs:
     name: Update Documentation
