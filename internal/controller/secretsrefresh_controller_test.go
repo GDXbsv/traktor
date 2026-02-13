@@ -422,6 +422,45 @@ var _ = Describe("SecretsRefresh Controller", func() {
 			}
 			Expect(found).To(BeTrue())
 		})
+
+		It("should correctly hash secret data for comparison", func() {
+			By("Creating two secrets with identical data")
+			secret1 := &corev1.Secret{
+				Data: map[string][]byte{
+					"key1": []byte("value1"),
+					"key2": []byte("value2"),
+				},
+			}
+			secret2 := &corev1.Secret{
+				Data: map[string][]byte{
+					"key2": []byte("value2"),
+					"key1": []byte("value1"),
+				},
+			}
+
+			hash1 := hashSecretData(secret1)
+			hash2 := hashSecretData(secret2)
+
+			By("Verifying hashes are identical regardless of key order")
+			Expect(hash1).To(Equal(hash2))
+
+			By("Creating a secret with different data")
+			secret3 := &corev1.Secret{
+				Data: map[string][]byte{
+					"key1": []byte("value1"),
+					"key2": []byte("different"),
+				},
+			}
+
+			hash3 := hashSecretData(secret3)
+
+			By("Verifying hash is different when data changes")
+			Expect(hash1).NotTo(Equal(hash3))
+
+			By("Verifying nil secret returns empty hash")
+			hashNil := hashSecretData(nil)
+			Expect(hashNil).To(Equal(""))
+		})
 	})
 })
 

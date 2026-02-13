@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,9 +18,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	traktorv1alpha1 "github.com/GDXbsv/traktor/api/v1alpha1"
 )
@@ -228,15 +233,72 @@ func (r *SecretsRefreshReconciler) getFilteredNamespaces(ctx context.Context, sr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecretsRefreshReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Create predicates to filter only real secret updates
+	secretPredicates := predicate.Funcs{
+		// Ignore Create events (including initial cache sync on controller restart)
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+		// Only process Update events where data actually changed
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldSecret, oldOk := e.ObjectOld.(*corev1.Secret)
+			newSecret, newOk := e.ObjectNew.(*corev1.Secret)
+
+			if !oldOk || !newOk {
+				return false
+			}
+
+			// Check if the secret data or stringData actually changed
+			// This prevents reconciliation on metadata-only updates
+			oldDataHash := hashSecretData(oldSecret)
+			newDataHash := hashSecretData(newSecret)
+
+			return oldDataHash != newDataHash
+		},
+		// Ignore Delete events - we don't need to restart deployments when secrets are deleted
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+		// Process Generic events (can happen with informer resync)
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&traktorv1alpha1.SecretsRefresh{}).
-		// Watch for changes to Secrets in all namespaces
+		// Watch for changes to Secrets in all namespaces with predicates
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findSecretsRefreshForSecret),
+			builder.WithPredicates(secretPredicates),
 		).
 		Named("secretsrefresh").
 		Complete(r)
+}
+
+// hashSecretData creates a hash of secret data for comparison
+func hashSecretData(secret *corev1.Secret) string {
+	if secret == nil {
+		return ""
+	}
+
+	// Combine all data keys and values in a deterministic way
+	keys := make([]string, 0, len(secret.Data))
+	for k := range secret.Data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var b strings.Builder
+	for _, k := range keys {
+		b.WriteString(k)
+		b.WriteString("=")
+		b.Write(secret.Data[k])
+		b.WriteString(";")
+	}
+
+	return b.String()
 }
 
 // findSecretsRefreshForSecret maps a Secret to SecretsRefresh objects that should watch it
