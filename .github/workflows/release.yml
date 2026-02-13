@@ -151,20 +151,16 @@ jobs:
           echo "Image reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
 
       # Generate SBOM for the Docker image
-      # Note: continue-on-error is set because the action tries to attach SBOM to a release
-      # that doesn't exist yet. The SBOM file is still created successfully and will be
-      # manually attached to the release in the create-release job.
+      # Note: We don't upload to release here because it doesn't exist yet.
+      # The SBOM file will be manually attached to the release in the create-release job.
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
-        continue-on-error: true
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ needs.validate-tag.outputs.version }}.spdx.json
           upload-artifact: false
           upload-release-assets: false
-        env:
-          GITHUB_TOKEN: ''
 
       - name: Verify SBOM was created
         run: |
