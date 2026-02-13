@@ -7,6 +7,71 @@ entries:
           description: Initial release of Traktor operator
           links:
             - name: GitHub Release
+              url: https://github.com/GDXbsv/traktor/releases/tag/v0.0.14
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/crds: |
+        - kind: SecretsRefresh
+          version: v1alpha1
+          name: secretsrefreshes.traktor.gdxcloud.net
+          displayName: Secrets Refresh
+          description: Watches secrets and restarts deployments on changes
+      artifacthub.io/crdsExamples: |
+        - apiVersion: traktor.gdxcloud.net/v1alpha1
+          kind: SecretsRefresh
+          metadata:
+            name: production-watcher
+          spec:
+            namespaceSelector:
+              matchLabels:
+                environment: production
+            secretSelector:
+              matchLabels:
+                auto-refresh: enabled
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/GDXbsv/traktor/blob/main/README.md
+        - name: Installation Guide
+          url: https://github.com/GDXbsv/traktor/blob/main/DEPLOYMENT.md
+        - name: Chart Source
+          url: https://github.com/GDXbsv/traktor/tree/main/charts/traktor
+      artifacthub.io/operator: "true"
+      artifacthub.io/operatorCapabilities: Basic Install
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/recommendations: |
+        - url: https://github.com/GDXbsv/traktor
+    apiVersion: v2
+    appVersion: 0.0.14
+    created: "2026-02-13T13:17:26.738864248Z"
+    description: A Kubernetes operator that automatically restarts deployments when
+      secrets change
+    digest: 73c7ad6c5414ab04261cd63e44c73f728d83dc3c22d323388012bbd4d7e8df06
+    home: https://github.com/GDXbsv/traktor
+    icon: https://raw.githubusercontent.com/GDXbsv/traktor/main/docs/images/logo.svg
+    keywords:
+    - kubernetes
+    - operator
+    - secrets
+    - deployment
+    - restart
+    - automation
+    maintainers:
+    - email: support@gdxcloud.net
+      name: GDX Cloud
+      url: https://gdxcloud.net
+    name: traktor
+    sources:
+    - https://github.com/GDXbsv/traktor
+    type: application
+    urls:
+    - https://gdxbsv.github.io/traktor/traktor-0.0.14.tgz
+    version: 0.0.14
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Initial release of Traktor operator
+          links:
+            - name: GitHub Release
               url: https://github.com/GDXbsv/traktor/releases/tag/v0.0.12
       artifacthub.io/containsSecurityUpdates: "false"
       artifacthub.io/crds: |
@@ -42,7 +107,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.12
-    created: "2026-02-06T16:44:30.527719696Z"
+    created: "2026-02-13T13:17:26.738059923Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 6829cba2851dbd95b8baf0dd6421cf11cb709f6c5f1880cafff6d571e9324e71
@@ -107,7 +172,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.10
-    created: "2026-02-06T16:44:30.526851567Z"
+    created: "2026-02-13T13:17:26.737303047Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 554255d241d99b702cd300f1b419a6845b3b9fee4025d22bd1d121f28a122db3
@@ -172,7 +237,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.9
-    created: "2026-02-06T16:44:30.530871985Z"
+    created: "2026-02-13T13:17:26.74185867Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: a8aa7b21f0d4b45d7d544dc59da54e197963e5735ee38072eac03589478ceb02
@@ -237,7 +302,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.8
-    created: "2026-02-06T16:44:30.530116336Z"
+    created: "2026-02-13T13:17:26.741058673Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 88b4fbee2b17add4886415a87911996ce8d89ffea553afa5be2886f0d3366403
@@ -302,7 +367,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.7
-    created: "2026-02-06T16:44:30.529323517Z"
+    created: "2026-02-13T13:17:26.740319931Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: 13e448a365789dc0723a7441be50cac99a4d1fd19ac677ebc6f62f4f0186181c
@@ -367,7 +432,7 @@ entries:
         - url: https://github.com/GDXbsv/traktor
     apiVersion: v2
     appVersion: 0.0.6
-    created: "2026-02-06T16:44:30.52854192Z"
+    created: "2026-02-13T13:17:26.739598722Z"
     description: A Kubernetes operator that automatically restarts deployments when
       secrets change
     digest: c6427b01784f31b5cc0ce59c904254eba89dc5ea3e52b0dff50db9c98037e819
@@ -391,4 +456,4 @@ entries:
     urls:
     - https://gdxbsv.github.io/traktor/traktor-0.0.6.tgz
     version: 0.0.6
-generated: "2026-02-06T16:44:30.525811557Z"
+generated: "2026-02-13T13:17:26.736334011Z"
