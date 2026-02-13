@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*.*.*'
       - '*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create release for (e.g., v0.0.13)'
+        required: true
+        type: string
 
 env:
   REGISTRY: docker.io
@@ -20,19 +26,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Validate tag format
+        id: validate_tag
         run: |
-          if [[ ! "${{ github.ref_name }}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
-            echo "Invalid tag format: ${{ github.ref_name }}"
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          if [[ ! "$TAG_NAME" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Invalid tag format: $TAG_NAME"
             echo "Expected format: v1.2.3, 1.2.3, v1.2.3-alpha, or 1.2.3-alpha"
             exit 1
           fi
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
 
       - name: Get version
         id: get_version
         run: |
-          TAG_NAME="${{ github.ref_name }}"
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
           # Remove 'v' prefix if present
           VERSION="${TAG_NAME#v}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -40,7 +51,8 @@ jobs:
       - name: Check if prerelease
         id: check_prerelease
         run: |
-          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          if [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
@@ -343,9 +355,42 @@ jobs:
           name: helm-chart
           path: ./artifacts/helm/
 
+      - name: Check if tag and release exist
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          
+          # Check if tag exists
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Tag $TAG_NAME exists"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "✗ Tag $TAG_NAME does not exist"
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "Error: Tag $TAG_NAME must exist before creating a release"
+              exit 1
+            fi
+          fi
+          
+          # Check if release exists
+          if gh release view $TAG_NAME --repo ${{ github.repository }} >/dev/null 2>&1; then
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Release $TAG_NAME already exists"
+          else
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "✗ Release $TAG_NAME does not exist (will be created)"
+          fi
+
       - name: Generate changelog
         id: changelog
+        if: steps.check_release.outputs.release_exists == 'false'
         run: |
+          # Get tag name
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          
           # Get previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
@@ -353,108 +398,186 @@ jobs:
             echo "First release"
             CHANGELOG="Initial release of Traktor Operator"
           else
-            echo "Generating changelog from $PREV_TAG to ${{ github.ref_name }}"
+            echo "Generating changelog from $PREV_TAG to $TAG_NAME"
             CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%an)" --no-merges)
           fi
-          
+
           # Save to file
           cat > CHANGELOG.md << EOF
           ## What's Changed
-          
+
           ${CHANGELOG}
-          
+
           ## Docker Images
-          
+
           \`\`\`bash
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate-tag.outputs.version }}
           \`\`\`
-          
+
           ## Installation
-          
+
           ### Using kubectl
-          
+
           \`\`\`bash
-          kubectl apply -f https://github.com/GDXbsv/traktor/releases/download/${{ github.ref_name }}/install.yaml
+          kubectl apply -f https://github.com/GDXbsv/traktor/releases/download/$TAG_NAME/install.yaml
           \`\`\`
           
           ### Using Helm
           
           \`\`\`bash
-          helm install traktor https://github.com/GDXbsv/traktor/releases/download/${{ github.ref_name }}/traktor-${{ needs.validate-tag.outputs.version }}.tgz
+          helm install traktor https://github.com/GDXbsv/traktor/releases/download/$TAG_NAME/traktor-${{ needs.validate-tag.outputs.version }}.tgz
           \`\`\`
-          
+
           ## Supported Architectures
-          
+
           - linux/amd64
           - linux/arm64
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ github.ref_name }}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...$TAG_NAME
           EOF
 
       - name: Create Release with GitHub CLI
+        if: steps.check_release.outputs.release_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          
+          echo "========================================="
+          echo "Creating GitHub Release for tag: $TAG_NAME"
+          echo "Tag exists: ${{ steps.check_release.outputs.tag_exists }}"
+          echo "Release exists: ${{ steps.check_release.outputs.release_exists }}"
+          echo "========================================="
+          
           # Determine if prerelease
           if [ "${{ needs.validate-tag.outputs.is_prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           else
             PRERELEASE_FLAG=""
           fi
-          
+
           # List available artifacts for debugging
           echo "Available artifacts:"
           find artifacts -type f
-          
+
           # Build file list, checking each file exists
           FILES=""
-          
+
           # Required files
           if [ -f "artifacts/install.yaml" ]; then
             FILES="$FILES artifacts/install.yaml"
           else
             echo "Warning: install.yaml not found"
           fi
-          
+
           if [ -f "artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz" ]; then
             FILES="$FILES artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz"
           else
             echo "Warning: manifests tarball not found"
           fi
-          
+
           if [ -f "artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json" ]; then
             FILES="$FILES artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json"
           else
             echo "Warning: SBOM file not found"
           fi
-          
+
           # Helm files
           if [ -f "artifacts/helm/index.yaml" ]; then
             FILES="$FILES artifacts/helm/index.yaml"
           else
             echo "Warning: Helm index.yaml not found"
           fi
-          
+
           # Add all helm chart tgz files
           for chart in artifacts/helm/*.tgz; do
             if [ -f "$chart" ]; then
               FILES="$FILES $chart"
             fi
           done
-          
+
           # Create release with available files
           if [ -z "$FILES" ]; then
             echo "Error: No artifacts found to upload"
             exit 1
           fi
           
-          echo "Creating release with files: $FILES"
-          gh release create ${{ github.ref_name }} \
+          echo "Creating release $TAG_NAME with files: $FILES"
+          
+          # Create release on existing tag
+          gh release create $TAG_NAME \
             --repo ${{ github.repository }} \
             --title "Release ${{ needs.validate-tag.outputs.version }}" \
             --notes-file CHANGELOG.md \
             $PRERELEASE_FLAG \
             $FILES
+          
+          echo "✓ Release $TAG_NAME created successfully"
+
+      - name: Upload assets to existing release
+        if: steps.check_release.outputs.release_exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          
+          echo "========================================="
+          echo "Updating existing release: $TAG_NAME"
+          echo "========================================="
+
+          # List available artifacts for debugging
+          echo "Available artifacts:"
+          find artifacts -type f
+
+          # Build file list, checking each file exists
+          FILES=""
+
+          # Required files
+          if [ -f "artifacts/install.yaml" ]; then
+            FILES="$FILES artifacts/install.yaml"
+          else
+            echo "Warning: install.yaml not found"
+          fi
+
+          if [ -f "artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz" ]; then
+            FILES="$FILES artifacts/traktor-${{ needs.validate-tag.outputs.version }}-manifests.tar.gz"
+          else
+            echo "Warning: manifests tarball not found"
+          fi
+
+          if [ -f "artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json" ]; then
+            FILES="$FILES artifacts/sbom-${{ needs.validate-tag.outputs.version }}.spdx.json"
+          else
+            echo "Warning: SBOM file not found"
+          fi
+
+          # Helm files
+          if [ -f "artifacts/helm/index.yaml" ]; then
+            FILES="$FILES artifacts/helm/index.yaml"
+          else
+            echo "Warning: Helm index.yaml not found"
+          fi
+
+          # Add all helm chart tgz files
+          for chart in artifacts/helm/*.tgz; do
+            if [ -f "$chart" ]; then
+              FILES="$FILES $chart"
+            fi
+          done
+
+          # Upload files to existing release
+          if [ -z "$FILES" ]; then
+            echo "Error: No artifacts found to upload"
+            exit 1
+          fi
+          
+          echo "Uploading files to existing release $TAG_NAME: $FILES"
+          gh release upload $TAG_NAME \
+            --repo ${{ github.repository }} \
+            --clobber \
+            $FILES
+          
+          echo "✓ Assets uploaded successfully to release $TAG_NAME"
 
   update-docs:
     name: Update Documentation
@@ -481,14 +604,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           git add README.md
-          
+
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          
+
           git commit -m "docs: update version to ${{ needs.validate-tag.outputs.version }} [skip ci]"
           git push origin main
 
@@ -531,14 +654,14 @@ jobs:
           rm -f gh-pages/traktor-0.0.2.tgz || true
           rm -f gh-pages/traktor-0.0.4.tgz || true
           rm -f gh-pages/traktor-0.0.5.tgz || true
-          
+
           # Copy new package to gh-pages
           mkdir -p gh-pages
           cp helm-artifacts/*.tgz gh-pages/ || true
-          
+
           # Generate/update index
           helm repo index gh-pages --url https://gdxbsv.github.io/traktor
-          
+
           # Add Artifact Hub repository metadata
           cat > gh-pages/artifacthub-repo.yml << 'EOF'
           repositoryID: 2a1be652-53bf-42c6-a2b5-7b87f26bc585
