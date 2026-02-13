@@ -73,7 +73,7 @@ var _ = Describe("SecretsRefresh Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 
-			By("Creating a test deployment")
+			By("Creating a test deployment that uses the secret")
 			deployment = &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      deploymentName,
@@ -97,6 +97,19 @@ var _ = Describe("SecretsRefresh Controller", func() {
 								{
 									Name:  "nginx",
 									Image: "nginx:alpine",
+									Env: []corev1.EnvVar{
+										{
+											Name: "PASSWORD",
+											ValueFrom: &corev1.EnvVarSource{
+												SecretKeyRef: &corev1.SecretKeySelector{
+													LocalObjectReference: corev1.LocalObjectReference{
+														Name: secretName,
+													},
+													Key: "password",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -162,7 +175,7 @@ var _ = Describe("SecretsRefresh Controller", func() {
 		})
 
 		It("should successfully reconcile and restart deployment when secret changes", func() {
-			By("Reconciling with the test namespace name (simulating secret change)")
+			By("Reconciling with the secret name and namespace (simulating secret change)")
 			controllerReconciler := &SecretsRefreshReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
@@ -170,8 +183,8 @@ var _ = Describe("SecretsRefresh Controller", func() {
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Name:      testNamespace,
-					Namespace: "default",
+					Name:      secretName,
+					Namespace: testNamespace,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -188,6 +201,202 @@ var _ = Describe("SecretsRefresh Controller", func() {
 				}
 
 				annotations := updatedDeployment.Spec.Template.Annotations
+				_, hasAnnotation := annotations["traktor.gdxcloud.net/restartedAt"]
+				return hasAnnotation
+			}, timeout, interval).Should(BeTrue())
+		})
+
+		It("should not restart deployment that doesn't use the secret", func() {
+			By("Creating a second deployment without the secret")
+			deploymentName2 := fmt.Sprintf("test-deploy-no-secret-%d", time.Now().UnixNano())
+			deployment2 := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deploymentName2,
+					Namespace: testNamespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "test-no-secret",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "test-no-secret",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "nginx",
+									Image: "nginx:alpine",
+									// No secret reference
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, deployment2)).To(Succeed())
+
+			By("Reconciling with the secret name and namespace")
+			controllerReconciler := &SecretsRefreshReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      secretName,
+					Namespace: testNamespace,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the first deployment (with secret) has restart annotation")
+			Eventually(func() bool {
+				updatedDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      deploymentName,
+					Namespace: testNamespace,
+				}, updatedDeployment)
+				if err != nil {
+					return false
+				}
+
+				annotations := updatedDeployment.Spec.Template.Annotations
+				_, hasAnnotation := annotations["traktor.gdxcloud.net/restartedAt"]
+				return hasAnnotation
+			}, timeout, interval).Should(BeTrue())
+
+			By("Verifying the second deployment (without secret) does NOT have restart annotation")
+			Consistently(func() bool {
+				updatedDeployment2 := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      deploymentName2,
+					Namespace: testNamespace,
+				}, updatedDeployment2)
+				if err != nil {
+					return false
+				}
+
+				annotations := updatedDeployment2.Spec.Template.Annotations
+				_, hasAnnotation := annotations["traktor.gdxcloud.net/restartedAt"]
+				return !hasAnnotation // Should NOT have the annotation
+			}, time.Second*2, interval).Should(BeTrue())
+		})
+
+		It("should restart deployment that uses secret via envFrom with multiple secrets", func() {
+			By("Creating a deployment with multiple envFrom secretRefs")
+			deploymentName3 := fmt.Sprintf("test-deploy-envfrom-%d", time.Now().UnixNano())
+			secretName2 := fmt.Sprintf("secrets-global-%d", time.Now().UnixNano())
+			secretName3 := fmt.Sprintf("secrets-terraform-%d", time.Now().UnixNano())
+
+			deployment3 := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deploymentName3,
+					Namespace: testNamespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "test-envfrom",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "test-envfrom",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "app",
+									Image: "nginx:alpine",
+									EnvFrom: []corev1.EnvFromSource{
+										{
+											SecretRef: &corev1.SecretEnvSource{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: secretName2,
+												},
+											},
+										},
+										{
+											SecretRef: &corev1.SecretEnvSource{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: secretName3,
+												},
+											},
+										},
+										{
+											SecretRef: &corev1.SecretEnvSource{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: secretName, // The original test secret
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, deployment3)).To(Succeed())
+
+			By("Creating additional secrets")
+			secret2 := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName2,
+					Namespace: testNamespace,
+				},
+				StringData: map[string]string{
+					"global_key": "global_value",
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret2)).To(Succeed())
+
+			secret3 := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName3,
+					Namespace: testNamespace,
+				},
+				StringData: map[string]string{
+					"terraform_key": "terraform_value",
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret3)).To(Succeed())
+
+			By("Reconciling with the middle secret (secrets-terraform)")
+			controllerReconciler := &SecretsRefreshReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      secretName3, // Change secrets-terraform
+					Namespace: testNamespace,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the deployment with envFrom has restart annotation")
+			Eventually(func() bool {
+				updatedDeployment3 := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      deploymentName3,
+					Namespace: testNamespace,
+				}, updatedDeployment3)
+				if err != nil {
+					return false
+				}
+
+				annotations := updatedDeployment3.Spec.Template.Annotations
 				_, hasAnnotation := annotations["traktor.gdxcloud.net/restartedAt"]
 				return hasAnnotation
 			}, timeout, interval).Should(BeTrue())

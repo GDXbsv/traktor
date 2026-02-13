@@ -39,15 +39,16 @@ type SecretsRefreshReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// The req.Name contains the Secret's namespace (passed from findSecretsRefreshForSecret)
+// The req.Name contains the Secret's name and req.Namespace contains the Secret's namespace
 func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// This reconcile is triggered by a Secret change (via SetupWithManager Watches)
 	// The Secret has already been filtered by namespace and label selectors
-	// req.Name contains the Secret's namespace where we need to restart deployments
+	// req.Name contains the Secret's name, req.Namespace contains the Secret's namespace
 
-	secretNamespace := req.Name
+	secretNamespace := req.Namespace
+	secretName := req.Name
 
 	// Safety check: Skip if this is the operator's own namespace to prevent self-restart loop
 	operatorNamespace := os.Getenv("POD_NAMESPACE")
@@ -60,7 +61,9 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	logger.Info("Secret changed, restarting deployments", "namespace", secretNamespace)
+	logger.Info("Secret changed, filtering deployments that use this secret",
+		"secret", secretName,
+		"namespace", secretNamespace)
 
 	// List all deployments in the namespace
 	deploymentList := &appsv1.DeploymentList{}
@@ -69,10 +72,15 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	// Restart each deployment by updating the annotation
+	// Filter and restart only deployments that use the changed secret
 	restartedCount := 0
 	for i := range deploymentList.Items {
 		deployment := &deploymentList.Items[i]
+
+		// Check if deployment uses the changed secret
+		if !r.deploymentUsesSecret(deployment, secretName) {
+			continue
+		}
 
 		if err := r.restartDeployment(ctx, deployment); err != nil {
 			logger.Error(err, "Failed to restart deployment",
@@ -88,6 +96,7 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	logger.Info("Completed deployment restart",
+		"secret", secretName,
 		"namespace", secretNamespace,
 		"restartedCount", restartedCount,
 		"totalDeployments", len(deploymentList.Items))
@@ -118,6 +127,69 @@ func (r *SecretsRefreshReconciler) restartDeployment(ctx context.Context, deploy
 
 	// Apply the patch using StrategicMergePatchType
 	return r.Patch(ctx, deployment, client.RawPatch(types.StrategicMergePatchType, patchBytes))
+}
+
+// deploymentUsesSecret checks if a deployment references the specified secret
+// in volumes, environment variables, or envFrom
+func (r *SecretsRefreshReconciler) deploymentUsesSecret(deployment *appsv1.Deployment, secretName string) bool {
+	podSpec := &deployment.Spec.Template.Spec
+
+	// Check volumes
+	for _, volume := range podSpec.Volumes {
+		if volume.Secret != nil && volume.Secret.SecretName == secretName {
+			return true
+		}
+	}
+
+	// Check all containers (init and regular)
+	allContainers := append([]corev1.Container{}, podSpec.InitContainers...)
+	allContainers = append(allContainers, podSpec.Containers...)
+
+	for _, container := range allContainers {
+		// Check envFrom
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.SecretRef != nil && envFrom.SecretRef.Name == secretName {
+				return true
+			}
+		}
+
+		// Check env
+		for _, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if env.ValueFrom.SecretKeyRef.Name == secretName {
+					return true
+				}
+			}
+		}
+	}
+
+	// Check ephemeral containers separately (different type)
+	for _, container := range podSpec.EphemeralContainers {
+		// Check envFrom
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.SecretRef != nil && envFrom.SecretRef.Name == secretName {
+				return true
+			}
+		}
+
+		// Check env
+		for _, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if env.ValueFrom.SecretKeyRef.Name == secretName {
+					return true
+				}
+			}
+		}
+	}
+
+	// Check imagePullSecrets
+	for _, imagePullSecret := range podSpec.ImagePullSecrets {
+		if imagePullSecret.Name == secretName {
+			return true
+		}
+	}
+
+	return false
 }
 
 // getFilteredNamespaces returns namespaces that match the selector
@@ -213,11 +285,11 @@ func (r *SecretsRefreshReconciler) findSecretsRefreshForSecret(ctx context.Conte
 		}
 
 		// This SecretsRefresh should be reconciled
-		// Pass the Secret's namespace as Name (hack to pass namespace info to Reconcile)
+		// Pass the Secret's name and namespace properly
 		requests = append(requests, ctrl.Request{
 			NamespacedName: client.ObjectKey{
-				Name:      secret.GetNamespace(), // Secret's namespace
-				Namespace: sr.Namespace,          // SecretsRefresh namespace (for logging)
+				Name:      secret.GetName(),      // Secret's name
+				Namespace: secret.GetNamespace(), // Secret's namespace
 			},
 		})
 	}
