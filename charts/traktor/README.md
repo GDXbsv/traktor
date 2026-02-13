@@ -14,14 +14,26 @@ Traktor is a Kubernetes operator that automatically restarts deployments when se
 
 ## Installation
 
-### Add Helm Repository (Coming Soon)
+### Add Helm Repository
+
+The Traktor Helm chart is available on [Artifact Hub](https://artifacthub.io/packages/helm/traktor/traktor).
 
 ```bash
 helm repo add traktor https://gdxbsv.github.io/traktor
 helm repo update
 ```
 
-### Install from GitHub Release
+### Install from Artifact Hub
+
+```bash
+# Install latest version
+helm install traktor traktor/traktor
+
+# Install specific version
+helm install traktor traktor/traktor --version 0.0.1
+```
+
+### Install from GitHub Release (Coming Soon)
 
 ```bash
 # Install latest version
@@ -435,6 +447,7 @@ Apache License 2.0 - see [LICENSE](../../LICENSE) for details.
 
 ## Links
 
+- [Artifact Hub](https://artifacthub.io/packages/helm/traktor/traktor)
 - [GitHub Repository](https://github.com/GDXbsv/traktor)
 - [Installation Guide](../../DEPLOYMENT.md)
 - [Examples](../../config/samples/)
