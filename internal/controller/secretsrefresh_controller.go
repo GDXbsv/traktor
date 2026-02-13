@@ -3,6 +3,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,13 +74,7 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	for i := range deploymentList.Items {
 		deployment := &deploymentList.Items[i]
 
-		if deployment.Spec.Template.Annotations == nil {
-			deployment.Spec.Template.Annotations = make(map[string]string)
-		}
-
-		deployment.Spec.Template.Annotations["traktor.gdxcloud.net/restartedAt"] = time.Now().Format(time.RFC3339)
-
-		if err := r.Update(ctx, deployment); err != nil {
+		if err := r.restartDeployment(ctx, deployment); err != nil {
 			logger.Error(err, "Failed to restart deployment",
 				"deployment", deployment.Name,
 				"namespace", deployment.Namespace)
@@ -97,6 +93,31 @@ func (r *SecretsRefreshReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		"totalDeployments", len(deploymentList.Items))
 
 	return ctrl.Result{}, nil
+}
+
+// restartDeployment restarts a deployment using Strategic Merge Patch,
+// similar to 'kubectl rollout restart deployment'
+func (r *SecretsRefreshReconciler) restartDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
+	// Create a patch that adds/updates the restartedAt annotation
+	patch := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"annotations": map[string]interface{}{
+						"traktor.gdxcloud.net/restartedAt": time.Now().Format(time.RFC3339),
+					},
+				},
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch: %w", err)
+	}
+
+	// Apply the patch using StrategicMergePatchType
+	return r.Patch(ctx, deployment, client.RawPatch(types.StrategicMergePatchType, patchBytes))
 }
 
 // getFilteredNamespaces returns namespaces that match the selector
