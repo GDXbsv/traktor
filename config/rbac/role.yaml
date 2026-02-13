@@ -33,7 +33,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - apps.gdxcloud.net
+  - traktor.gdxcloud.net
   resources:
   - secretsrefreshes
   verbs:
@@ -45,13 +45,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - apps.gdxcloud.net
+  - traktor.gdxcloud.net
   resources:
   - secretsrefreshes/finalizers
   verbs:
   - update
 - apiGroups:
-  - apps.gdxcloud.net
+  - traktor.gdxcloud.net
   resources:
   - secretsrefreshes/status
   verbs:

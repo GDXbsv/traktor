@@ -62,7 +62,7 @@ kubectl get pods -n traktor-system
 # traktor-controller-manager-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
 
 # Check the CRD
-kubectl get crd secretsrefreshes.apps.gdxcloud.net
+kubectl get crd secretsrefreshes.traktor.gdxcloud.net
 
 # View operator logs
 kubectl logs -n traktor-system -l control-plane=controller-manager -f
@@ -141,7 +141,7 @@ The operator watches for changes in Secrets based on filters you define, then re
 #### Example 1: Watch All Secrets in Production Namespaces
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: production-secrets
@@ -168,7 +168,7 @@ kubectl apply -f secretsrefresh-production.yaml
 #### Example 2: Simple Configuration - Watch One Namespace
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: app-secrets
@@ -188,7 +188,7 @@ spec:
 #### Example 3: Watch All Namespaces
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: all-secrets
@@ -273,7 +273,7 @@ kubectl label namespace test-traktor watch-secrets=true
 2. **Create a SecretsRefresh CR:**
 ```bash
 cat <<EOF | kubectl apply -f -
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: test-refresh
@@ -361,7 +361,7 @@ kubectl logs -n traktor-system -l control-plane=controller-manager
 
 ```bash
 # Check if CRD exists
-kubectl get crd secretsrefreshes.apps.gdxcloud.net
+kubectl get crd secretsrefreshes.traktor.gdxcloud.net
 
 # Reinstall CRD
 make install

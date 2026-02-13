@@ -54,7 +54,7 @@ kubectl label secret my-secret -n my-app auto-refresh=enabled
 ### 4. Create SecretsRefresh Resource
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: production-watcher
@@ -190,7 +190,7 @@ kubectl get pods -n traktor-system
 # traktor-controller-manager-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
 
 # Check CRD is installed
-kubectl get crd secretsrefreshes.apps.gdxcloud.net
+kubectl get crd secretsrefreshes.traktor.gdxcloud.net
 ```
 
 ## ⚙️ Configuration
@@ -198,7 +198,7 @@ kubectl get crd secretsrefreshes.apps.gdxcloud.net
 ### SecretsRefresh Custom Resource
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: my-secrets-watcher
@@ -277,7 +277,7 @@ spec:
 Watch all secrets in production namespaces:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: production-watcher
@@ -306,7 +306,7 @@ kubectl label secret api-keys -n app-frontend auto-refresh=enabled
 Watch only database-related secrets:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: database-credentials-watcher
@@ -324,7 +324,7 @@ spec:
 Watch secrets across different teams:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: multi-team-watcher
@@ -344,7 +344,7 @@ spec:
 Watch all secrets in a specific namespace:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: staging-watcher

@@ -54,7 +54,7 @@ stringData:
 
 ---
 # Step 4: Configure the operator to watch this namespace
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: quickstart-watcher

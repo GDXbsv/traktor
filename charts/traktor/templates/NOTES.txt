@@ -22,7 +22,7 @@ Traktor Operator has been deployed successfully!
 3. Create a SecretsRefresh resource:
 
    cat <<EOL | kubectl apply -f -
-   apiVersion: apps.gdxcloud.net/v1alpha1
+   apiVersion: traktor.gdxcloud.net/v1alpha1
    kind: SecretsRefresh
    metadata:
      name: my-secrets-watcher

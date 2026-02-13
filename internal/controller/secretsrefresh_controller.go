@@ -28,9 +28,9 @@ type SecretsRefreshReconciler struct {
 	Recorder record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=apps.gdxcloud.net,resources=secretsrefreshes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps.gdxcloud.net,resources=secretsrefreshes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps.gdxcloud.net,resources=secretsrefreshes/finalizers,verbs=update
+// +kubebuilder:rbac:groups=traktor.gdxcloud.net,resources=secretsrefreshes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=traktor.gdxcloud.net,resources=secretsrefreshes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=traktor.gdxcloud.net,resources=secretsrefreshes/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch

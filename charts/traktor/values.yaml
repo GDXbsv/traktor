@@ -181,7 +181,7 @@ networkPolicy:
 exampleResources:
   enabled: false
   resources:
-    - apiVersion: apps.gdxcloud.net/v1alpha1
+    - apiVersion: traktor.gdxcloud.net/v1alpha1
       kind: SecretsRefresh
       metadata:
         name: example-watcher

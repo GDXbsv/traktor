@@ -3,7 +3,7 @@
 
 ---
 # Example 1: Watch production secrets and auto-restart deployments
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: production-secrets-watcher
@@ -27,7 +27,7 @@ spec:
 
 ---
 # Example 2: Watch specific application secrets across multiple teams
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: multi-team-secrets
@@ -56,7 +56,7 @@ spec:
 
 ---
 # Example 3: Watch all secrets in a specific namespace
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: staging-all-secrets
@@ -76,7 +76,7 @@ spec:
 
 ---
 # Example 4: Watch all namespaces and all secrets (use with caution!)
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: global-secrets-watcher
@@ -90,7 +90,7 @@ spec:
 
 ---
 # Example 5: Complex filtering - Production app secrets only
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: production-app-secrets

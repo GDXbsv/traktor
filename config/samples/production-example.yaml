@@ -3,7 +3,7 @@
 
 ---
 # Example: Multi-tier production application with database credentials
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: prod-app-secrets
@@ -33,7 +33,7 @@ spec:
 
 ---
 # Example: Database credentials refresh across all services
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: database-credentials-watcher
@@ -54,7 +54,7 @@ spec:
 
 ---
 # Example: API keys and external service credentials
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: api-keys-watcher
@@ -87,7 +87,7 @@ spec:
 
 ---
 # Example: TLS certificates auto-refresh
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: tls-certificates-watcher

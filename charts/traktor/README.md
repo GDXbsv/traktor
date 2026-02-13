@@ -71,7 +71,7 @@ After installation:
 
 2. **Create a SecretsRefresh resource:**
    ```yaml
-   apiVersion: apps.gdxcloud.net/v1alpha1
+   apiVersion: traktor.gdxcloud.net/v1alpha1
    kind: SecretsRefresh
    metadata:
      name: production-watcher
@@ -347,7 +347,7 @@ helm uninstall traktor
 
 # Uninstall and delete CRDs
 helm uninstall traktor
-kubectl delete crd secretsrefreshes.apps.gdxcloud.net
+kubectl delete crd secretsrefreshes.traktor.gdxcloud.net
 ```
 
 **Note:** By default, CRDs are kept even after uninstall to prevent data loss. Delete them manually if needed.
@@ -395,7 +395,7 @@ kubectl auth can-i --list --as=system:serviceaccount:default:traktor-controller-
 **CRD not found:**
 ```bash
 # Verify CRD installation
-kubectl get crd secretsrefreshes.apps.gdxcloud.net
+kubectl get crd secretsrefreshes.traktor.gdxcloud.net
 
 # Manually install CRDs
 kubectl apply -f charts/traktor/crds/

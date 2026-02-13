@@ -35,11 +35,11 @@ annotations:
   artifacthub.io/crds: |
     - kind: SecretsRefresh
       version: v1alpha1
-      name: secretsrefreshes.apps.gdxcloud.net
+      name: secretsrefreshes.traktor.gdxcloud.net
       displayName: Secrets Refresh
       description: Watches secrets and restarts deployments on changes
   artifacthub.io/crdsExamples: |
-    - apiVersion: apps.gdxcloud.net/v1alpha1
+    - apiVersion: traktor.gdxcloud.net/v1alpha1
       kind: SecretsRefresh
       metadata:
         name: production-watcher

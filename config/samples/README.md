@@ -17,7 +17,7 @@
 Отслеживание всех секретов с меткой `refresh: enabled` в неймспейсах с меткой `watch-secrets: true`:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: secretsrefresh-simple
@@ -54,7 +54,7 @@ kubectl label secret my-secret refresh=enabled -n my-namespace
 Отслеживание секретов в production неймспейсах для команд backend и frontend:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: secretsrefresh-sample
@@ -101,7 +101,7 @@ kubectl label secret db-credentials auto-refresh=true -n backend-prod
 Если не указать селекторы, будут отслеживаться все секреты во всех неймспейсах:
 
 ```yaml
-apiVersion: apps.gdxcloud.net/v1alpha1
+apiVersion: traktor.gdxcloud.net/v1alpha1
 kind: SecretsRefresh
 metadata:
   name: secretsrefresh-all
@@ -178,12 +178,12 @@ namespaceSelector:
 
 ```yaml
 # Чтение SecretsRefresh CRD
-- apiGroups: ["apps.gdxcloud.net"]
+- apiGroups: ["traktor.gdxcloud.net"]
   resources: ["secretsrefreshes"]
   verbs: ["get", "list", "watch"]
 
 # Обновление статуса
-- apiGroups: ["apps.gdxcloud.net"]
+- apiGroups: ["traktor.gdxcloud.net"]
   resources: ["secretsrefreshes/status"]
   verbs: ["get", "update", "patch"]
 

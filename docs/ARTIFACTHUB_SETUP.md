@@ -146,7 +146,7 @@ annotations:
   artifacthub.io/crds: |
     - kind: SecretsRefresh
       version: v1alpha1
-      name: secretsrefreshes.apps.gdxcloud.net
+      name: secretsrefreshes.traktor.gdxcloud.net
   artifacthub.io/links: |
     - name: Documentation
       url: https://github.com/GDXbsv/traktor/blob/main/README.md
